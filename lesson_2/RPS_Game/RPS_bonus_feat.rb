@@ -1,3 +1,4 @@
+require 'pry-byebug'
 class Move
   VALUES = ['rock', 'paper', 'scissors']
 
@@ -35,11 +36,20 @@ class Move
 end
 
 class Player
-  attr_accessor :move, :name, :score
+  attr_accessor :move, :name, :score, :history
 
   def initialize
     set_name
     @score = 0
+    @history = History.new
+  end
+
+  def record_move
+    history.add_record(move.to_s)
+  end
+
+  def disp_move_history
+    puts "#{name}'s move history: #{history}"
   end
 end
 
@@ -74,6 +84,22 @@ class Computer < Player
 
   def choose
     self.move = Move.new(Move::VALUES.sample)
+  end
+end
+
+class History
+  attr_accessor :moves_list
+
+  def initialize
+    @moves_list = []
+  end
+
+  def add_record(move)
+    moves_list << move
+  end
+
+  def to_s
+    moves_list.to_s
   end
 end
 
@@ -143,7 +169,7 @@ class RPSMatch
   def play
     set_max_score
     loop do
-      record_score(RPSGame.new(human, computer).play)
+      record_score RPSGame.new(human, computer).play
       display_score
       break if match_finished?
     end
@@ -151,7 +177,7 @@ class RPSMatch
     play_again?
   end
 end
- 
+
 class RPSGame < RPSMatch
   def initialize(human, computer)
     @human = human
@@ -178,12 +204,14 @@ class RPSGame < RPSMatch
 
   def play
     human.choose
+    human.record_move
+    human.disp_move_history
     computer.choose
-    display_moves
+    computer.record_move
+    computer.disp_move_history
     display_winner
   end
 end
-
 
 loop do
   break unless RPSMatch.new.play
