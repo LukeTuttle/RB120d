@@ -1,0 +1,149 @@
+Tic Tac Toe is a 2 player game with a 3x3 game board. Players are assigned either
+an 'X' or 'O' for a game piece. Players alternate placing their game pieces in one 
+of the cells in the 3x3 grid. first one with 3 game peices in a line wins. 
+
+tic tac toe is a 2 player board game played on a 3x3 grid. Players alternate marking 
+a cell in the grid, first one to mark 3 in a row with their token wins. 
+
+
+Nouns: 
+- player
+- board
+- token
+- square/cell
+- 3 in a row
+
+Verbs:
+play
+marking/placing/turn
+
+
+Board
+Player
+- marking
+- play
+Cell
+Token 
+
+SPIKE:
+
+class Board
+  attr_reader :grid
+
+  def initialize
+    # create a multi-dim array to represent the 3x3 board
+    @grid = Array.new(3, nil).map {|arr| [[],[],[]]}
+  end
+
+  
+end
+
+class Player
+  attr_reader :token, :name
+  def initialize(name, token)
+    @name = name
+    @token = token # should be a string object
+  end
+
+  def place_token(row, column)
+    # modify board by placing (player's) @token on 
+    (board's) @grid in board object
+  end
+end
+
+class Human < Player
+  initialize
+    #method to get user input for name and token (default to X or O)
+    super(user_inputs)
+  end
+
+  def place_token
+    #method to get user input for placing token
+    super(user_input)
+  end
+end
+
+class Computer < Player
+  initialize
+    # choose name (randomly?) from a list
+    # choose token from X or O (choose whichever hasnt been chosen by human)
+    super(chosen_name, chosen_token)
+  end
+
+  def place_token
+    # computer_choose is standin for computer choice logic method (returns col and row)
+    super(computer_choose)
+  end
+
+  private
+  
+  def computer_choose
+    # returns: row (integer), column (integer)  could return as array? 
+    # this method should use the board's grid state to determine
+      # where to place a token. method should return integers
+      # for column and row to supply to Person#place_token
+    # could just choose a random unoccupied spot on the board to start with
+        # just while making sure the rest of the game works
+
+    # I'm thinking it should be private because there's no reason for 
+    # it to be used outside the class, that way no one can use it to 
+    # determine where the player ought to move next according to the AI (comp logic)
+  end 
+end
+
+class Cell
+  attr_accessor :token
+  def initialize
+    @token = nil
+  end
+end
+
+class TTTGame
+  # need a way to establish who goes first, it shouldn't always be human or computer
+    # maybe the user can choose who goes first? 
+  attr_reader :board, :human, :computer, :turn # should turn be an attribute, if so in which class?
+
+  def initialize
+    @board = Board.new
+    @human = Human.new
+    @computer = Computer.new
+  end
+
+  def greeting
+    # outputs a greeting
+  end
+
+  def turn #do I need this method??
+    # results in player placing a token in a cell 
+      # and increments @turn by one
+  end
+
+  def play_again?
+    # asks user if they want to play again and returns a boolean
+  end
+
+
+
+  def play
+    # greeting
+    loop do
+      # session loop which is exited if user chooses NOT to play again
+      winner = nil
+      loop do
+        display_board
+        first_player_moves
+
+        break if someone_won? || board_full?
+
+      second_player_moves
+      break if someone_won? || board_full?
+      end
+          # dont forget to increment @turn after each player takes their turn
+      end
+      # output who won the game
+      # break unless user wants to play again
+    end
+    # output goodbye messange (puts statment or a TTTGame#goodbye method?)
+  end
+
+end
