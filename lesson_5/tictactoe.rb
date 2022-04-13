@@ -1,5 +1,3 @@
-require 'pry-byebug'
-
 class Square
   INITIAL_MARKER = " "
 
@@ -21,44 +19,20 @@ end
 class Player
   attr_reader :marker
 
-  def initialize(name, marker)
-    @name = name
+  def initialize(marker)
     @marker = marker
   end
 end
 
 class Human < Player
   def initialize(marker)
-    # method to get user input for name and marker (default to X or O)
-    super('John Doe', marker)
+    super(marker)
   end
 end
 
 class Computer < Player
   def initialize(marker)
-    # choose name (randomly?) from a list
-    # choose marker from X or O (choose whichever hasnt been chosen by human)
-    super('Comp-u-tor', marker)
-  end
-
-  def place_marker
-    # computer_choose is standin for computer choice logic method (returns col and row)
-    super(computer_choose)
-  end
-
-  private
-
-  def computer_choose
-    # returns: row (integer), column (integer)  could return as array? 
-    # this method should use the board's grid state to determine
-      # where to place a marker. method should return integers
-      # for column and row to supply to Person#place_marker
-    # could just choose a random unoccupied spot on the board to start with
-        # just while making sure the rest of the game works
-
-    # I'm thinking it should be private because there's no reason for 
-    # it to be used outside the class, that way no one can use it to 
-    # determine where the player ought to move next according to the AI (comp logic)
+    super(marker)
   end
 end
 
@@ -118,7 +92,6 @@ class Board
   end
 end
 
-
 class TTTGame
   HUMAN_MARKER = 'X'
   COMPUTER_MARKER = 'O'
@@ -140,8 +113,12 @@ class TTTGame
     puts "Thanks for playing Tic-Tac-Toe! Goodbye"
   end
 
-  def display_board(clear = true)
-    system 'clear' if clear
+  def clear_screen_and_display_board
+    clear
+    display_board
+  end
+
+  def display_board
     puts "You're a #{human.marker}, Computer is a #{computer.marker}"
     puts ""
     puts "     |     |     "
@@ -158,7 +135,7 @@ class TTTGame
   end
 
   def display_result
-    display_board
+    clear_screen_and_display_board
 
     case board.detect_winner?
     when human.marker
@@ -197,13 +174,17 @@ class TTTGame
     answer == 'y'
   end
 
+  def clear
+    system 'clear'
+  end
+
   # rubocop:todo Metrics/MethodLength
   def play
-    system 'clear'
+    clear
     display_welcome_message
 
     loop do
-      display_board(false)
+      display_board
 
       loop do
         human_moves
@@ -212,7 +193,7 @@ class TTTGame
         computer_moves
         break if board.full? || board.someone_won?
 
-        display_board
+        clear_screen_and_display_board
       end
       display_result
       break unless play_again?
@@ -221,10 +202,7 @@ class TTTGame
     end
     display_goodbye_message
   end
-
 end
-
-# NOTE: TODOS:  the board does not reset after user chooses to play again
 
 game = TTTGame.new
 game.play
