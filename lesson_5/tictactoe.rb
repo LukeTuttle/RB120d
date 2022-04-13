@@ -1,45 +1,3 @@
-class Square
-  INITIAL_MARKER = " "
-
-  attr_accessor :marker
-
-  def initialize(str = INITIAL_MARKER)
-    @marker = str
-  end
-
-  def to_s
-    marker
-  end
-
-  def unmarked?
-    marker == INITIAL_MARKER
-  end
-
-  def marked?
-    marker != INITIAL_MARKER
-  end
-end
-
-class Player
-  attr_reader :marker
-
-  def initialize(marker)
-    @marker = marker
-  end
-end
-
-class Human < Player
-  def initialize(marker)
-    super(marker)
-  end
-end
-
-class Computer < Player
-  def initialize(marker)
-    super(marker)
-  end
-end
-
 class Board
   WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9],
                    [1, 4, 7], [2, 5, 8], [3, 6, 9],
@@ -98,6 +56,8 @@ class Board
     nil
   end
 
+  private
+
   def three_identical_markers?(squares)
     markers = squares.select(&:marked?).collect(&:marker)
     return false if markers.size != 3
@@ -105,17 +65,71 @@ class Board
   end
 end
 
+class Square
+  INITIAL_MARKER = " "
+
+  attr_accessor :marker
+
+  def initialize(str = INITIAL_MARKER)
+    @marker = str
+  end
+
+  def to_s
+    marker
+  end
+
+  def unmarked?
+    marker == INITIAL_MARKER
+  end
+
+  def marked?
+    marker != INITIAL_MARKER
+  end
+end
+
+class Player
+  attr_reader :marker
+
+  def initialize(marker)
+    @marker = marker
+  end
+end
+
 class TTTGame
   HUMAN_MARKER = 'X'
   COMPUTER_MARKER = 'O'
+  FIRST_TO_MOVE = HUMAN_MARKER
 
   attr_reader :board, :human, :computer
 
   def initialize
     @board = Board.new
-    @human = Human.new(HUMAN_MARKER)
-    @computer = Computer.new(COMPUTER_MARKER)
+    @human = Player.new(HUMAN_MARKER)
+    @computer = Player.new(COMPUTER_MARKER)
+    @current_marker = FIRST_TO_MOVE
   end
+
+  # rubocop:todo Metrics/MethodLength
+  def play
+    clear
+    display_welcome_message
+
+    loop do
+      display_board
+
+      loop do
+        current_player_moves
+        break if board.someone_won? || board.full?
+        clear_screen_and_display_board if human_turn?
+      end
+      display_result
+      break unless play_again?
+      reset
+    end
+    display_goodbye_message
+  end
+
+  private
 
   def display_welcome_message
     puts "Welcome to Tic-Tac-Toe!"
@@ -166,6 +180,20 @@ class TTTGame
     board[board.empty_square_keys.sample] = computer.marker
   end
 
+  def current_player_moves
+    if human_turn?
+      human_moves
+      @current_marker = COMPUTER_MARKER
+    else
+      computer_moves
+      @current_marker = HUMAN_MARKER
+    end
+  end
+
+  def human_turn?
+    @current_marker == HUMAN_MARKER
+  end
+
   def play_again?
     puts "Do you want to play again? (y/n):"
     answer = nil
@@ -183,34 +211,10 @@ class TTTGame
 
   def reset
     board.reset
+    @current_marker = FIRST_TO_MOVE
     clear
     puts "Let's play again!"
     puts ""
-  end
-
-  require 'pry-byebug'
-  # rubocop:todo Metrics/MethodLength
-  def play
-    clear
-    display_welcome_message
-
-    loop do
-      display_board
-
-      loop do
-        human_moves
-        break if board.full? || board.someone_won?
-
-        computer_moves
-        break if board.full? || board.someone_won?
-
-        clear_screen_and_display_board
-      end
-      display_result
-      break unless play_again?
-      reset
-    end
-    display_goodbye_message
   end
 end
 
