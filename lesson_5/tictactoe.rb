@@ -14,6 +14,10 @@ class Square
   def unmarked?
     marker == INITIAL_MARKER
   end
+
+  def marked?
+    marker != INITIAL_MARKER
+  end
 end
 
 class Player
@@ -52,43 +56,52 @@ class Board
     (1..9).each { |key| @squares[key] = Square.new }
   end
 
-  def get_square_at(key)
-    @squares[key]
-  end
-
-  def set_square_at(key, marker)
-    @squares[key].marker = marker
+  def []=(num, marker)
+    @squares[num].marker = marker
   end
 
   def empty_square_keys
     squares.select { |_, square_obj| square_obj.unmarked? }.keys
   end
 
+  # rubocop:disable Metrics/MethodLength, Metrics/AbcSize
+  def draw
+    puts "     |     |     "
+    puts "  #{@squares[1]}  |  #{@squares[2]}  |  #{@squares[3]}  "
+    puts "     |     |     "
+    puts "-----+-----+-----"
+    puts "     |     |     "
+    puts "  #{@squares[4]}  |  #{@squares[5]}  |  #{@squares[6]}  "
+    puts "     |     |     "
+    puts "-----+-----+-----"
+    puts "     |     |     "
+    puts "  #{@squares[7]}  |  #{@squares[8]}  |  #{@squares[9]}  "
+    puts "     |     |     "
+  end
+  # rubocop:enable Metrics/MethodLength, Metrics/AbcSize
+
   def full?
     empty_square_keys.empty?
   end
 
   def someone_won?
-    !!detect_winner?
+    !!winning_marker
   end
 
-  def count_human_marker(squares)
-    squares.collect(&:marker).count(TTTGame::HUMAN_MARKER)
-  end
-
-  def count_computer_marker(squares)
-    squares.collect(&:marker).count(TTTGame::COMPUTER_MARKER)
-  end
-
-  def detect_winner?
+  def winning_marker
     WINNING_LINES.each do |line|
-      if count_human_marker(@squares.values_at(*line)) == 3
-        return TTTGame::HUMAN_MARKER
-      elsif count_computer_marker(@squares.values_at(*line)) == 3
-        return TTTGame::COMPUTER_MARKER
+      squares = @squares.values_at(*line)
+      if three_identical_markers?(squares)
+        return squares.first.marker
       end
     end
     nil
+  end
+
+  def three_identical_markers?(squares)
+    markers = squares.select(&:marked?).collect(&:marker)
+    return false if markers.size != 3
+    markers.min == markers.max
   end
 end
 
@@ -121,23 +134,13 @@ class TTTGame
   def display_board
     puts "You're a #{human.marker}, Computer is a #{computer.marker}"
     puts ""
-    puts "     |     |     "
-    puts "  #{board.get_square_at(1)}  |  #{board.get_square_at(2)}  |  #{board.get_square_at(3)}  "
-    puts "     |     |     "
-    puts "-----+-----+-----"
-    puts "     |     |     "
-    puts "  #{board.get_square_at(4)}  |  #{board.get_square_at(5)}  |  #{board.get_square_at(6)}  "
-    puts "     |     |     "
-    puts "-----+-----+-----"
-    puts "     |     |     "
-    puts "  #{board.get_square_at(7)}  |  #{board.get_square_at(8)}  |  #{board.get_square_at(9)}  "
-    puts "     |     |     "
+    board.draw
   end
 
   def display_result
     clear_screen_and_display_board
 
-    case board.detect_winner?
+    case board.winning_marker
     when human.marker
       puts "You Won!"
     when computer.marker
@@ -156,11 +159,11 @@ class TTTGame
       puts "Sorry, that's not a valid choice"
     end
 
-    board.set_square_at(square, human.marker)
+    board[square] = human.marker
   end
 
   def computer_moves
-    board.set_square_at(board.empty_square_keys.sample, computer.marker)
+    board[board.empty_square_keys.sample] = computer.marker
   end
 
   def play_again?
@@ -178,6 +181,14 @@ class TTTGame
     system 'clear'
   end
 
+  def reset
+    board.reset
+    clear
+    puts "Let's play again!"
+    puts ""
+  end
+
+  require 'pry-byebug'
   # rubocop:todo Metrics/MethodLength
   def play
     clear
@@ -197,8 +208,7 @@ class TTTGame
       end
       display_result
       break unless play_again?
-      board.reset
-      puts "Let's play again!"
+      reset
     end
     display_goodbye_message
   end
