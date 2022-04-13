@@ -1,42 +1,44 @@
-class Board
-  attr_reader :grid
+require 'pry-byebug'
 
-  def initialize
-    # create a multi-dim array to represent the 3x3 board
-    @grid = Array.new(3, nil).map {|arr| [[],[],[]]}
+class Cell
+  INITIAL_MARKER = " "
+
+  attr_accessor :token
+
+  def initialize(str = INITIAL_MARKER)
+    @token = str
+  end
+
+  def to_s
+    token
+  end
+
+  def unmarked?
+    token == INITIAL_MARKER
   end
 end
 
 class Player
   attr_reader :token, :name
+
   def initialize(name, token)
     @name = name
-    @token = token # should be a string object
-  end
-
-  def place_token(row, column)
-    # modify board by placing (player's) @token on 
-    # (board's) @grid in board object
+    @token = token
   end
 end
 
 class Human < Player
-  def initialize
-    #method to get user input for name and token (default to X or O)
-    super(user_inputs)
-  end
-
-  def place_token
-    #method to get user input for placing token
-    super(user_input)
+  def initialize(token)
+    # method to get user input for name and token (default to X or O)
+    super('John Doe', token)
   end
 end
 
 class Computer < Player
-  def initialize
+  def initialize(token)
     # choose name (randomly?) from a list
     # choose token from X or O (choose whichever hasnt been chosen by human)
-    super(chosen_name, chosen_token)
+    super('Comp-u-tor', token)
   end
 
   def place_token
@@ -45,7 +47,7 @@ class Computer < Player
   end
 
   private
-  
+
   def computer_choose
     # returns: row (integer), column (integer)  could return as array? 
     # this method should use the board's grid state to determine
@@ -57,25 +59,64 @@ class Computer < Player
     # I'm thinking it should be private because there's no reason for 
     # it to be used outside the class, that way no one can use it to 
     # determine where the player ought to move next according to the AI (comp logic)
-  end 
-end
-
-class Cell
-  attr_accessor :token
-  def initialize
-    @token = nil
   end
 end
 
-class TTTGame
-  # need a way to establish who goes first, it shouldn't always be human or computer
-    # maybe the user can choose who goes first? 
-  attr_reader :board, :human, :computer, :turn # should turn be an attribute, if so in which class?
+class Board
+  WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9],
+                   [1, 4, 7], [2, 5, 8], [3, 6, 9],
+                   [9, 5, 1], [3, 5, 7]]
+
+  attr_reader :cells
 
   def initialize
-    # @board = Board.new
-    # @human = Human.new
-    # @computer = Computer.new
+    @cells = {}
+    (1..9).each { |key| @cells[key] = Cell.new }
+  end
+
+  def get_cell_at(key)
+    @cells[key]
+  end
+
+  def set_cell_at(key, token)
+    @cells[key].token = token
+  end
+
+  def empty_cell_keys
+    cells.select { |_, cell_obj| cell_obj.unmarked? }.keys
+  end
+
+  def full?
+    empty_cell_keys.empty?
+  end
+
+  def someone_won?
+    !!detect_winner?
+  end
+
+  def detect_winner?
+    WINNING_LINES.each do |line|
+      if line.all? { |cell_n| cells[cell_n].token == TTTGame::HUMAN_TOKEN }
+        return TTTGame::HUMAN_TOKEN
+      elsif line.all? { |cell_n| cells[cell_n].token == TTTGame::COMPUTER_TOKEN }
+        return TTTGame::COMPUTER_TOKEN
+      end
+    end
+    nil
+  end
+end
+
+
+class TTTGame
+  HUMAN_TOKEN = 'X'
+  COMPUTER_TOKEN = 'O'
+
+  attr_reader :board, :human, :computer
+
+  def initialize
+    @board = Board.new
+    @human = Human.new(HUMAN_TOKEN)
+    @computer = Computer.new(COMPUTER_TOKEN)
   end
 
   def display_welcome_message
@@ -88,53 +129,84 @@ class TTTGame
   end
 
   def display_board
+    system 'clear'
+    puts "You're a #{human.token}, Computer is a #{computer.token}"
     puts ""
     puts "     |     |     "
-    puts "     |     |     "
-    puts "     |     |     "
-    puts "-----+-----+-----"
-    puts "     |     |     "
-    puts "     |     |     "
+    puts "  #{board.get_cell_at(1)}  |  #{board.get_cell_at(2)}  |  #{board.get_cell_at(3)}  "
     puts "     |     |     "
     puts "-----+-----+-----"
     puts "     |     |     "
+    puts "  #{board.get_cell_at(4)}  |  #{board.get_cell_at(5)}  |  #{board.get_cell_at(6)}  "
     puts "     |     |     "
-    puts "     |     |     "∏
+    puts "-----+-----+-----"
+    puts "     |     |     "
+    puts "  #{board.get_cell_at(7)}  |  #{board.get_cell_at(8)}  |  #{board.get_cell_at(9)}  "
+    puts "     |     |     "
   end
 
   def display_result
-    puts "pretend I'm displaying the result"
+    display_board
+
+    case board.detect_winner?
+    when human.token
+      puts "You Won!"
+    when computer.token
+      puts "Computer Won!"
+    else
+      puts "It's a tie!"
+    end
   end
 
-  # need methods for player and computer turn (ie first and seocnd player turns)
+  def human_moves
+    puts "Choose a cell (#{board.empty_cell_keys.join(', ')}):"
+    cell = nil
+    loop do
+      cell = gets.chomp.to_i
+      break if (board.empty_cell_keys).include?(cell)
+      puts "Sorry, that's not a valid choice"
+    end
+
+    board.set_cell_at(cell, human.token)
+  end
+
+  def computer_moves
+    board.set_cell_at(board.empty_cell_keys.sample, computer.token)
+  end
 
   def play_again?
-    # asks user if they want to play again and returns a boolean
-    nil
+    puts "Do you want to play again? (y/n):"
+    answer = nil
+    loop do
+      answer = gets.chomp.downcase
+      break if 'yn'.include?(answer)
+      puts "Invalid input"
+    end
+    answer.include?('y')
   end
 
+  # rubocop:todo Metrics/MethodLength
   def play
     display_welcome_message
     loop do # session loop which is exited if user chooses NOT to play again
-      winner = nil
+      display_board
       loop do
-        display_board
+        human_moves
+        break if board.full? || board.someone_won?
         
-        break
-        first_player_moves # dont forget to increment @turn after each player takes their turn
-        break if someone_won? || board_full?
-
-        second_player_moves
-        break if someone_won? || board_full?
+        computer_moves
+        display_board
+        break if board.full? || board.someone_won?
       end
       display_result
       break unless play_again?
-      
     end
     display_goodbye_message
   end
 
 end
+
+# NOTE: TODOS:  the board does not reset after user chooses to play again
 
 game = TTTGame.new
 game.play
