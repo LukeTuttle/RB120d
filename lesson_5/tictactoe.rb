@@ -1,47 +1,47 @@
 require 'pry-byebug'
 
-class Cell
+class Square
   INITIAL_MARKER = " "
 
-  attr_accessor :token
+  attr_accessor :marker
 
   def initialize(str = INITIAL_MARKER)
-    @token = str
+    @marker = str
   end
 
   def to_s
-    token
+    marker
   end
 
   def unmarked?
-    token == INITIAL_MARKER
+    marker == INITIAL_MARKER
   end
 end
 
 class Player
-  attr_reader :token, :name
+  attr_reader :marker
 
-  def initialize(name, token)
+  def initialize(name, marker)
     @name = name
-    @token = token
+    @marker = marker
   end
 end
 
 class Human < Player
-  def initialize(token)
-    # method to get user input for name and token (default to X or O)
-    super('John Doe', token)
+  def initialize(marker)
+    # method to get user input for name and marker (default to X or O)
+    super('John Doe', marker)
   end
 end
 
 class Computer < Player
-  def initialize(token)
+  def initialize(marker)
     # choose name (randomly?) from a list
-    # choose token from X or O (choose whichever hasnt been chosen by human)
-    super('Comp-u-tor', token)
+    # choose marker from X or O (choose whichever hasnt been chosen by human)
+    super('Comp-u-tor', marker)
   end
 
-  def place_token
+  def place_marker
     # computer_choose is standin for computer choice logic method (returns col and row)
     super(computer_choose)
   end
@@ -51,8 +51,8 @@ class Computer < Player
   def computer_choose
     # returns: row (integer), column (integer)  could return as array? 
     # this method should use the board's grid state to determine
-      # where to place a token. method should return integers
-      # for column and row to supply to Person#place_token
+      # where to place a marker. method should return integers
+      # for column and row to supply to Person#place_marker
     # could just choose a random unoccupied spot on the board to start with
         # just while making sure the rest of the game works
 
@@ -67,39 +67,51 @@ class Board
                    [1, 4, 7], [2, 5, 8], [3, 6, 9],
                    [9, 5, 1], [3, 5, 7]]
 
-  attr_reader :cells
+  attr_reader :squares
 
   def initialize
-    @cells = {}
-    (1..9).each { |key| @cells[key] = Cell.new }
+    @squares = {}
+    reset
   end
 
-  def get_cell_at(key)
-    @cells[key]
+  def reset
+    (1..9).each { |key| @squares[key] = Square.new }
   end
 
-  def set_cell_at(key, token)
-    @cells[key].token = token
+  def get_square_at(key)
+    @squares[key]
   end
 
-  def empty_cell_keys
-    cells.select { |_, cell_obj| cell_obj.unmarked? }.keys
+  def set_square_at(key, marker)
+    @squares[key].marker = marker
+  end
+
+  def empty_square_keys
+    squares.select { |_, square_obj| square_obj.unmarked? }.keys
   end
 
   def full?
-    empty_cell_keys.empty?
+    empty_square_keys.empty?
   end
 
   def someone_won?
     !!detect_winner?
   end
 
+  def count_human_marker(squares)
+    squares.collect(&:marker).count(TTTGame::HUMAN_MARKER)
+  end
+
+  def count_computer_marker(squares)
+    squares.collect(&:marker).count(TTTGame::COMPUTER_MARKER)
+  end
+
   def detect_winner?
     WINNING_LINES.each do |line|
-      if line.all? { |cell_n| cells[cell_n].token == TTTGame::HUMAN_TOKEN }
-        return TTTGame::HUMAN_TOKEN
-      elsif line.all? { |cell_n| cells[cell_n].token == TTTGame::COMPUTER_TOKEN }
-        return TTTGame::COMPUTER_TOKEN
+      if count_human_marker(@squares.values_at(*line)) == 3
+        return TTTGame::HUMAN_MARKER
+      elsif count_computer_marker(@squares.values_at(*line)) == 3
+        return TTTGame::COMPUTER_MARKER
       end
     end
     nil
@@ -108,15 +120,15 @@ end
 
 
 class TTTGame
-  HUMAN_TOKEN = 'X'
-  COMPUTER_TOKEN = 'O'
+  HUMAN_MARKER = 'X'
+  COMPUTER_MARKER = 'O'
 
   attr_reader :board, :human, :computer
 
   def initialize
     @board = Board.new
-    @human = Human.new(HUMAN_TOKEN)
-    @computer = Computer.new(COMPUTER_TOKEN)
+    @human = Human.new(HUMAN_MARKER)
+    @computer = Computer.new(COMPUTER_MARKER)
   end
 
   def display_welcome_message
@@ -128,20 +140,20 @@ class TTTGame
     puts "Thanks for playing Tic-Tac-Toe! Goodbye"
   end
 
-  def display_board
-    system 'clear'
-    puts "You're a #{human.token}, Computer is a #{computer.token}"
+  def display_board(clear = true)
+    system 'clear' if clear
+    puts "You're a #{human.marker}, Computer is a #{computer.marker}"
     puts ""
     puts "     |     |     "
-    puts "  #{board.get_cell_at(1)}  |  #{board.get_cell_at(2)}  |  #{board.get_cell_at(3)}  "
+    puts "  #{board.get_square_at(1)}  |  #{board.get_square_at(2)}  |  #{board.get_square_at(3)}  "
     puts "     |     |     "
     puts "-----+-----+-----"
     puts "     |     |     "
-    puts "  #{board.get_cell_at(4)}  |  #{board.get_cell_at(5)}  |  #{board.get_cell_at(6)}  "
+    puts "  #{board.get_square_at(4)}  |  #{board.get_square_at(5)}  |  #{board.get_square_at(6)}  "
     puts "     |     |     "
     puts "-----+-----+-----"
     puts "     |     |     "
-    puts "  #{board.get_cell_at(7)}  |  #{board.get_cell_at(8)}  |  #{board.get_cell_at(9)}  "
+    puts "  #{board.get_square_at(7)}  |  #{board.get_square_at(8)}  |  #{board.get_square_at(9)}  "
     puts "     |     |     "
   end
 
@@ -149,9 +161,9 @@ class TTTGame
     display_board
 
     case board.detect_winner?
-    when human.token
+    when human.marker
       puts "You Won!"
-    when computer.token
+    when computer.marker
       puts "Computer Won!"
     else
       puts "It's a tie!"
@@ -159,19 +171,19 @@ class TTTGame
   end
 
   def human_moves
-    puts "Choose a cell (#{board.empty_cell_keys.join(', ')}):"
-    cell = nil
+    puts "Choose a square (#{board.empty_square_keys.join(', ')}):"
+    square = nil
     loop do
-      cell = gets.chomp.to_i
-      break if (board.empty_cell_keys).include?(cell)
+      square = gets.chomp.to_i
+      break if (board.empty_square_keys).include?(square)
       puts "Sorry, that's not a valid choice"
     end
 
-    board.set_cell_at(cell, human.token)
+    board.set_square_at(square, human.marker)
   end
 
   def computer_moves
-    board.set_cell_at(board.empty_cell_keys.sample, computer.token)
+    board.set_square_at(board.empty_square_keys.sample, computer.marker)
   end
 
   def play_again?
@@ -179,27 +191,33 @@ class TTTGame
     answer = nil
     loop do
       answer = gets.chomp.downcase
-      break if 'yn'.include?(answer)
-      puts "Invalid input"
+      break if %w(y n).include?(answer)
+      puts "Sorry, must y or n"
     end
-    answer.include?('y')
+    answer == 'y'
   end
 
   # rubocop:todo Metrics/MethodLength
   def play
+    system 'clear'
     display_welcome_message
-    loop do # session loop which is exited if user chooses NOT to play again
-      display_board
+
+    loop do
+      display_board(false)
+
       loop do
         human_moves
         break if board.full? || board.someone_won?
-        
+
         computer_moves
-        display_board
         break if board.full? || board.someone_won?
+
+        display_board
       end
       display_result
       break unless play_again?
+      board.reset
+      puts "Let's play again!"
     end
     display_goodbye_message
   end
