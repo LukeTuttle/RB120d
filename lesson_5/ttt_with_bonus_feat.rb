@@ -1,3 +1,4 @@
+require 'pry-byebug'
 class Board
   WINNING_LINES = [[1, 2, 3], [4, 5, 6], [7, 8, 9]] + # rows
                   [[1, 4, 7], [2, 5, 8], [3, 6, 9]] + # cols
@@ -86,30 +87,81 @@ class Square
 end
 
 class Player
-  attr_reader :marker
+  attr_reader :marker, :name
 
-  def initialize(marker)
+  def initialize(marker, name = nil)
     @marker = marker
+    @name = name
   end
 end
+
+class Human < Player
+  attr_accessor :name, :marker
+  # def prompt_for_name(name = nil)
+  #   # @name = name unless name == 'prompt user' #incase I want to hard code @name when human is initialized
+  #   name = nil
+  #   puts "What is your name?:"
+  #   loop do
+  #     name = gets.chomp
+  #     break unless name.empty?
+  #     puts "I didn't get that, please try again:"
+  #   end
+  #   @name = name
+  # end
+end
+
+class Computer < Player
+  def initialize(marker, name)
+    super
+  end
+  
+  def name
+    "'#{@name}'"
+  end
+end
+
+class Score
+  def initialize
+    @data = {}
+  end
+
+  def to_s; end
+end
+
 
 class TTTGame
   HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = HUMAN_MARKER
+  POSSIBLE_AI_NAMES = [
+    'Mr. Robo 3000', 'The Terminator', 'Jazz Hands', 'Tricky Dick Nixon'
+  ]
 
-  attr_reader :board, :human, :computer
+  attr_reader :board, :human, :computer, :score
 
   def initialize
     @board = Board.new
-    @human = Player.new(HUMAN_MARKER)
-    @computer = Player.new(COMPUTER_MARKER)
+    @human = Human.new(HUMAN_MARKER)
+    @computer = Computer.new(COMPUTER_MARKER, POSSIBLE_AI_NAMES.sample)
     @current_marker = FIRST_TO_MOVE
   end
+
+  def initialize_score
+    # add the human and computer's @name instance vars as keys to the TTTGame's @score's @data instance variable (a hash)
+  end
+
+  # def play
+  #   clear
+  #   welcome_and_get_name
+  #   # display_welcome_message
+  #   main_game
+  #   display_goodbye_message
+  # end
 
   def play
     clear
     display_welcome_message
+    prompt_for_name_and_marker
     main_game
     display_goodbye_message
   end
@@ -133,6 +185,37 @@ class TTTGame
       break if board.someone_won? || board.full?
       clear_screen_and_display_board if human_turn?
     end
+  end
+
+  def prompt_for_name_and_marker
+    @human.name = prompt_for_name
+    puts "Hello #{human.name}, today you will be playing against #{computer.name}."
+    puts ""
+    @human.marker = prompt_for_marker
+    puts ""
+    binding.pry
+  end
+
+  def prompt_for_name
+    name = nil
+    puts "What is your name?:"
+    loop do
+      name = gets.chomp.strip
+      break unless name.empty?
+      puts "I didn't get that, please try again:"
+    end
+    name
+  end
+
+  def prompt_for_marker
+    marker = nil
+    puts "Please choose a marker for yourself. You may choose any single character other than 'O':"
+    loop do
+      marker = gets.chomp.strip[0] #incase they enter more than one character
+      break unless marker.nil? || marker.empty?
+      puts "I didn't get that, please try again:"
+    end
+    marker
   end
 
   def display_welcome_message
@@ -160,8 +243,19 @@ class TTTGame
     puts ""
   end
 
+  def joinor(arr, delimiter=', ', word='or')
+    case arr.size
+    when 0 then ''
+    when 1 then arr.first
+    when 2 then arr.join(" #{word} ")
+    else
+      arr[-1] = "#{word} #{arr.last}"
+      arr.join(delimiter)
+    end
+  end
+
   def human_moves
-    puts "Choose a square (#{board.unmarked_keys.join(', ')}): "
+    puts "Choose a square (#{joinor board.unmarked_keys}): "
     square = nil
     loop do
       square = gets.chomp.to_i
