@@ -165,6 +165,7 @@ class TTTGame
     clear
     display_welcome_message
     ask_for_name_and_marker
+    determine_who_goes_first
     initialize_score
     main_game
     display_goodbye_message
@@ -257,14 +258,50 @@ class TTTGame
   end
 
   def ask_for_name_and_marker
-    @human.name = prompt_for_name
+    @human.name = ask_for_name
+    puts ""
     puts "Hello #{human.name}, '#{computer.name}' will be your opponent today."
     puts ""
-    @human.marker = prompt_for_marker
+    @human.marker = ask_for_marker
     puts ""
   end
 
-  def prompt_for_name
+  def determine_who_goes_first
+    if ask_who_should_decide == 'human'
+      @current_marker = ask_who_goes_first == 'human' ? human.marker : computer.marker
+    else
+      @current_marker = [human.marker, computer.marker].sample
+      if @current_marker == computer.marker
+        puts "Computer chose to go first!\n"
+        sleep 0.5
+      end
+    end
+    clear
+  end
+
+  def ask_who_should_decide
+    choice = nil
+    loop do
+      puts "Do you want to choose who goes first? (y/n):"
+      choice = gets.chomp.downcase
+      break if ['y', 'n'].include?(choice)
+      puts "Invalid input. Please try again."
+    end
+    choice == 'y' ? 'human' : 'computer'
+  end
+
+  def ask_who_goes_first
+    choice = nil
+    loop do
+      puts "Do you want to go first? (y/n):"
+      choice = gets.chomp.downcase
+      break if ['y', 'n'].include?(choice)
+      puts "Invalid input. Please try again."
+    end
+    choice == 'y' ? 'human' : 'computer'
+  end
+
+  def ask_for_name
     name = nil
     puts "What is your name?:"
     loop do
@@ -275,7 +312,7 @@ class TTTGame
     name
   end
 
-  def prompt_for_marker
+  def ask_for_marker
     marker = nil
     puts "Please choose a marker for yourself. You may choose any single character other than 'O':"
     loop do
