@@ -97,39 +97,28 @@ end
 
 class Human < Player
   attr_accessor :name, :marker
-  # def prompt_for_name(name = nil)
-  #   # @name = name unless name == 'prompt user' #incase I want to hard code @name when human is initialized
-  #   name = nil
-  #   puts "What is your name?:"
-  #   loop do
-  #     name = gets.chomp
-  #     break unless name.empty?
-  #     puts "I didn't get that, please try again:"
-  #   end
-  #   @name = name
-  # end
 end
 
 class Computer < Player
   def initialize(marker, name)
     super
   end
-  
-  def name
-    "'#{@name}'"
-  end
 end
 
 class Score
-  def initialize
-    @data = {}
+  attr_reader :data
+  def initialize(human, computer)
+    @data = { "#{human}" => 0, "#{computer}" => 0}
   end
 
-  def to_s; end
+  def to_s
+    @data.map { |player, score| "#{player}: #{score}" }.join("\n")
+  end
 end
 
 
 class TTTGame
+  MAX_SCORE = 1
   HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = HUMAN_MARKER
@@ -146,9 +135,7 @@ class TTTGame
     @current_marker = FIRST_TO_MOVE
   end
 
-  def initialize_score
-    # add the human and computer's @name instance vars as keys to the TTTGame's @score's @data instance variable (a hash)
-  end
+
 
   # def play
   #   clear
@@ -162,6 +149,7 @@ class TTTGame
     clear
     display_welcome_message
     prompt_for_name_and_marker
+    initialize_score
     main_game
     display_goodbye_message
   end
@@ -170,16 +158,39 @@ class TTTGame
 
   def main_game
     loop do
-      display_board
-      player_move
-      display_result
-      break unless play_again?
+      execute_single_game
+      display_result unless max_score_achieved?
+      break if max_score_achieved? || (ask_play_again? == false)
       reset
       display_play_again_message
     end
+    clear
+    display_board
+    display_match_result
   end
 
-  def player_move
+  def execute_single_game
+    display_score
+    display_board
+    players_take_turns
+  end
+
+  def max_score_achieved?
+    @score.data.values.max >= MAX_SCORE
+  end
+
+  def display_match_result
+    case @score.data.key(MAX_SCORE)
+    when human.name
+      puts "Congratulations #{human.name}! You won!"
+    when computer.name
+      puts "WhaapWhaap! #{computer.name} won!"
+    end
+    puts "The final score is:\n#{@score}"
+    puts ""
+  end
+
+  def players_take_turns
     loop do
       current_player_moves
       break if board.someone_won? || board.full?
@@ -189,11 +200,10 @@ class TTTGame
 
   def prompt_for_name_and_marker
     @human.name = prompt_for_name
-    puts "Hello #{human.name}, today you will be playing against #{computer.name}."
+    puts "Hello #{human.name}, '#{computer.name}' will be your opponent today."
     puts ""
     @human.marker = prompt_for_marker
     puts ""
-    binding.pry
   end
 
   def prompt_for_name
@@ -223,6 +233,16 @@ class TTTGame
     puts ""
   end
 
+  def initialize_score
+    @score = Score.new(@human.name, @computer.name)
+  end
+
+  def display_score
+    puts "Score is"
+    puts @score
+    puts ""
+  end
+
   def display_goodbye_message
     puts "Thanks for playing Tic Tac Toe! Goodbye!"
   end
@@ -237,7 +257,7 @@ class TTTGame
   end
 
   def display_board
-    puts "You're a #{human.marker}. Computer is a #{computer.marker}."
+    puts "Your marker is a #{human.marker}. #{computer.name}'s is a #{computer.marker}."
     puts ""
     board.draw
     puts ""
@@ -285,17 +305,21 @@ class TTTGame
 
     case board.winning_marker
     when human.marker
-      puts "You won!"
+      puts "#{human.name} won!"
+      @score.data[human.name] += 1
     when computer.marker
-      puts "Computer won!"
+      puts "#{computer.name} won!"
+      @score.data[computer.name] += 1
     else
       puts "It's a tie!"
     end
+    puts "\nThe score is now:\n#{@score}\n"
   end
 
-  def play_again?
+  def ask_play_again?
     answer = nil
     loop do
+      puts "The first player to win #{MAX_SCORE} games wins the match."
       puts "Would you like to play again? (y/n)"
       answer = gets.chomp.downcase
       break if %w(y n).include? answer
