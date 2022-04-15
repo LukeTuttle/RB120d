@@ -55,12 +55,35 @@ class Board
   end
   # rubocop:enable Metrics/AbcSize
 
+  # method takes a string so it can be used as a general purpose method for
+  # board rather than being hard coded to play against human player only in
+  # case this TTTGame is expanded to include multiple human or computer players
+  def sq_key_needed_to_win(marker)
+    WINNING_LINES.each do |sq_keys_in_line|
+      if line_near_complete?(sq_keys_in_line, marker)
+        sq_keys_in_line.each do |sq_key|
+          return sq_key if @squares.fetch(sq_key).marker == Square::INITIAL_MARKER
+        end
+      end
+    end
+    nil
+  end
+
+  def middle_square_available?
+    @squares.fetch(5).marker == Square::INITIAL_MARKER
+  end
+
   private
 
   def three_identical_markers?(squares)
     markers = squares.select(&:marked?).collect(&:marker)
     return false if markers.size != 3
     markers.min == markers.max
+  end
+
+  def line_near_complete?(arr, marker)
+    square_values = @squares.values_at(*arr).map(&:marker)
+    square_values.count(marker) == 2
   end
 end
 
@@ -116,9 +139,12 @@ class Score
   end
 end
 
-
+# TO DO: HUMAN_MARKER is no longer passed into the @marker instance var for 
+# the @human (Human) collaborator object. Code needs to be refactored for this. 
+# I'm just waiting until I start working on allowing the user to choose who decides 
+# which player goes first (ie. user chooses to let themself decide or computer decide)
 class TTTGame
-  MAX_SCORE = 1
+  MAX_SCORE = 3
   HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
   FIRST_TO_MOVE = HUMAN_MARKER
@@ -135,20 +161,10 @@ class TTTGame
     @current_marker = FIRST_TO_MOVE
   end
 
-
-
-  # def play
-  #   clear
-  #   welcome_and_get_name
-  #   # display_welcome_message
-  #   main_game
-  #   display_goodbye_message
-  # end
-
   def play
     clear
     display_welcome_message
-    prompt_for_name_and_marker
+    ask_for_name_and_marker
     initialize_score
     main_game
     display_goodbye_message
@@ -175,6 +191,56 @@ class TTTGame
     players_take_turns
   end
 
+  def players_take_turns
+    loop do
+      current_player_moves
+      break if board.someone_won? || board.full?
+      clear_screen_and_display_board if human_turn?
+    end
+  end
+
+  def current_player_moves
+    if human_turn?
+      human_moves
+      @current_marker = computer.marker
+    else
+      computer_moves
+      @current_marker = human.marker
+    end
+  end
+
+  def human_turn?
+    @current_marker == human.marker
+  end
+
+  def human_moves
+    puts "Choose a square (#{joinor board.unmarked_keys}): "
+    square = nil
+    loop do
+      square = gets.chomp.to_i
+      break if board.unmarked_keys.include?(square)
+      puts "Sorry, that's not a valid choice."
+    end
+
+    board[square] = human.marker
+  end
+
+  def computer_moves
+    board[determine_computer_move] = computer.marker
+  end
+
+  def determine_computer_move
+    if !!board.sq_key_needed_to_win(computer.marker)
+      board.sq_key_needed_to_win(computer.marker)
+    elsif !!board.sq_key_needed_to_win(human.marker)
+      board.sq_key_needed_to_win(human.marker)
+    elsif board.middle_square_available?
+      5
+    else
+      board.unmarked_keys.sample
+    end
+  end
+
   def max_score_achieved?
     @score.data.values.max >= MAX_SCORE
   end
@@ -190,15 +256,7 @@ class TTTGame
     puts ""
   end
 
-  def players_take_turns
-    loop do
-      current_player_moves
-      break if board.someone_won? || board.full?
-      clear_screen_and_display_board if human_turn?
-    end
-  end
-
-  def prompt_for_name_and_marker
+  def ask_for_name_and_marker
     @human.name = prompt_for_name
     puts "Hello #{human.name}, '#{computer.name}' will be your opponent today."
     puts ""
@@ -252,10 +310,6 @@ class TTTGame
     display_board
   end
 
-  def human_turn?
-    @current_marker == HUMAN_MARKER
-  end
-
   def display_board
     puts "Your marker is a #{human.marker}. #{computer.name}'s is a #{computer.marker}."
     puts ""
@@ -271,32 +325,6 @@ class TTTGame
     else
       arr[-1] = "#{word} #{arr.last}"
       arr.join(delimiter)
-    end
-  end
-
-  def human_moves
-    puts "Choose a square (#{joinor board.unmarked_keys}): "
-    square = nil
-    loop do
-      square = gets.chomp.to_i
-      break if board.unmarked_keys.include?(square)
-      puts "Sorry, that's not a valid choice."
-    end
-
-    board[square] = human.marker
-  end
-
-  def computer_moves
-    board[board.unmarked_keys.sample] = computer.marker
-  end
-
-  def current_player_moves
-    if human_turn?
-      human_moves
-      @current_marker = COMPUTER_MARKER
-    else
-      computer_moves
-      @current_marker = HUMAN_MARKER
     end
   end
 
