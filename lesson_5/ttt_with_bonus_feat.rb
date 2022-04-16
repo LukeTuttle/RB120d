@@ -39,7 +39,7 @@ class Board
     (1..9).each { |key| @squares[key] = Square.new }
   end
 
-  # rubocop:disable Metrics/AbcSize
+  # rubocop:disable Metrics/AbcSize, Metrics/MethodLength
   def draw
     puts "     |     |"
     puts "  #{@squares[1]}  |  #{@squares[2]}  |  #{@squares[3]}"
@@ -53,7 +53,7 @@ class Board
     puts "  #{@squares[7]}  |  #{@squares[8]}  |  #{@squares[9]}"
     puts "     |     |"
   end
-  # rubocop:enable Metrics/AbcSize
+  # rubocop:enable Metrics/AbcSize, Metrics/MethodLength
 
   # method takes a string so it can be used as a general purpose method for
   # board rather than being hard coded to play against human player only in
@@ -71,6 +71,13 @@ class Board
 
   def middle_square_available?
     @squares.fetch(5).marker == Square::INITIAL_MARKER
+  end
+
+  def player_can_win_on_next_turn(markers)
+    markers.each do |marker|
+      return marker if !!sq_key_needed_to_win(marker)
+    end
+    nil
   end
 
   private
@@ -109,29 +116,29 @@ class Square
   end
 end
 
-class Player
-  attr_reader :marker, :name
+class Human
+  attr_accessor :name, :marker
 
-  def initialize(marker, name = nil)
+  def initialize(marker = nil, name = nil)
     @marker = marker
     @name = name
   end
 end
 
-class Human < Player
-  attr_accessor :name, :marker
-end
+class Computer
+  attr_reader :name, :marker
 
-class Computer < Player
-  def initialize(marker, name)
-    super
+  def initialize(marker = nil, name = nil)
+    @marker = marker
+    @name = name
   end
 end
 
 class Score
   attr_reader :data
-  def initialize(human, computer)
-    @data = { "#{human}" => 0, "#{computer}" => 0}
+
+  def initialize(human_name, computer_name)
+    @data = { human_name => 0, computer_name => 0 }
   end
 
   def to_s
@@ -139,15 +146,16 @@ class Score
   end
 end
 
-# TO DO: HUMAN_MARKER is no longer passed into the @marker instance var for 
-# the @human (Human) collaborator object. Code needs to be refactored for this. 
-# I'm just waiting until I start working on allowing the user to choose who decides 
-# which player goes first (ie. user chooses to let themself decide or computer decide)
+# TO DO: HUMAN_MARKER is no longer passed into the @marker instance var for
+# the @human (Human) collaborator object. Code needs to be refactored for this.
+# I'm just waiting until I start working on allowing the user to choose who
+# decides which player goes first (ie. user chooses to let themself decide
+# or computer decide)
 class TTTGame
   MAX_SCORE = 3
-  HUMAN_MARKER = "X"
+  # HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
-  FIRST_TO_MOVE = HUMAN_MARKER
+  # ASK_ = HUMAN_MARKER
   POSSIBLE_AI_NAMES = [
     'Mr. Robo 3000', 'The Terminator', 'Jazz Hands', 'Tricky Dick Nixon'
   ]
@@ -156,9 +164,9 @@ class TTTGame
 
   def initialize
     @board = Board.new
-    @human = Human.new(HUMAN_MARKER)
+    @human = Human.new
     @computer = Computer.new(COMPUTER_MARKER, POSSIBLE_AI_NAMES.sample)
-    @current_marker = FIRST_TO_MOVE
+    # @current_marker = ASK_
   end
 
   def play
@@ -176,20 +184,26 @@ class TTTGame
   def main_game
     loop do
       execute_single_game
-      display_result unless max_score_achieved?
-      break if max_score_achieved? || (ask_play_again? == false)
+      break if max_score_achieved?
+      display_result
+      break unless ask_play_again?
       reset
       display_play_again_message
     end
-    clear
-    display_board
-    display_match_result
+    close_out_match
   end
 
   def execute_single_game
     display_score
     display_board
     players_take_turns
+    increment_score
+  end
+
+  def close_out_match
+    clear
+    display_board
+    display_match_result
   end
 
   def players_take_turns
@@ -231,15 +245,21 @@ class TTTGame
   end
 
   def determine_computer_move
-    if !!board.sq_key_needed_to_win(computer.marker)
-      board.sq_key_needed_to_win(computer.marker)
-    elsif !!board.sq_key_needed_to_win(human.marker)
-      board.sq_key_needed_to_win(human.marker)
-    elsif board.middle_square_available?
-      5
-    else
-      board.unmarked_keys.sample
-    end
+    markers = { human: human.marker, computer: computer.marker }
+    chance_to_win = board.player_can_win_on_next_turn(markers.values)
+
+    return offensive_move if chance_to_win == markers[:computer]
+    return deffensive_move if chance_to_win == markers[:human]
+    return 5 if board.middle_square_available?
+    board.unmarked_keys.sample
+  end
+
+  def offensive_move
+    board.sq_key_needed_to_win(computer.marker)
+  end
+
+  def deffensive_move
+    board.sq_key_needed_to_win(human.marker)
   end
 
   def max_score_achieved?
@@ -266,17 +286,45 @@ class TTTGame
     puts ""
   end
 
+  # def determine_who_goes_first
+  #   first_player =
+  #     if human_wants_to_go_first?
+  #       human.marker
+  #     else
+  #       comp_choice = [human.marker, computer.marker].sample
+  #       display_computer_choice(comp_choice)
+  #       comp_choice
+  #     end
+  #   @first_to_move = first_player
+  #   @current_marker = @first_to_move
+  #   clear
+  # end
+
+  # def display_computer_choice(choice)
+  #   to_go_first = choice == computer.marker ? computer.name : human.name
+  #   puts "Computer chose #{to_go_first} to go first!\n"
+  #   sleep 0.5
+  # end
+
   def determine_who_goes_first
-    if ask_who_should_decide == 'human'
-      @current_marker = ask_who_goes_first == 'human' ? human.marker : computer.marker
-    else
-      @current_marker = [human.marker, computer.marker].sample
-      if @current_marker == computer.marker
-        puts "Computer chose to go first!\n"
-        sleep 0.5
+    first_player =
+      if ask_who_should_decide == 'human'
+        ask_who_goes_first == 'human' ? human.marker : computer.marker
+      else
+        computer_chooses_first_to_move
       end
-    end
+    @first_to_move = first_player
+    @current_marker = @first_to_move
+    # binding.pry
     clear
+  end
+
+  def computer_chooses_first_to_move
+    marker_choice = [human.marker, computer.marker].sample
+    name = marker_choice == computer.marker ? computer.name : human.name
+    puts "Computer chose #{name} to go first!\n"
+    sleep 0.5
+    marker_choice
   end
 
   def ask_who_should_decide
@@ -314,9 +362,9 @@ class TTTGame
 
   def ask_for_marker
     marker = nil
-    puts "Please choose a marker for yourself. You may choose any single character other than 'O':"
+    puts "Please choose a marker, any character other than 'O':"
     loop do
-      marker = gets.chomp.strip[0] #incase they enter more than one character
+      marker = gets.chomp.strip[0] # incase they enter more than one character
       break unless marker.nil? || marker.empty?
       puts "I didn't get that, please try again:"
     end
@@ -367,18 +415,24 @@ class TTTGame
 
   def display_result
     clear_screen_and_display_board
+    winner = determine_game_winner
+    puts !!winner ? "#{winner} won!" : "It's a tie!"
+    puts "\nThe score is now:\n#{@score}\n"
+  end
 
+  def determine_game_winner
     case board.winning_marker
     when human.marker
-      puts "#{human.name} won!"
-      @score.data[human.name] += 1
+      human.name
     when computer.marker
-      puts "#{computer.name} won!"
-      @score.data[computer.name] += 1
-    else
-      puts "It's a tie!"
+      computer.name
     end
-    puts "\nThe score is now:\n#{@score}\n"
+  end
+
+  def increment_score
+    if !!determine_game_winner
+      @score.data[determine_game_winner] += 1
+    end
   end
 
   def ask_play_again?
@@ -400,7 +454,7 @@ class TTTGame
 
   def reset
     board.reset
-    @current_marker = FIRST_TO_MOVE
+    @current_marker = @first_to_move
     clear
   end
 
