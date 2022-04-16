@@ -153,9 +153,7 @@ end
 # or computer decide)
 class TTTGame
   MAX_SCORE = 3
-  # HUMAN_MARKER = "X"
   COMPUTER_MARKER = "O"
-  # ASK_ = HUMAN_MARKER
   POSSIBLE_AI_NAMES = [
     'Mr. Robo 3000', 'The Terminator', 'Jazz Hands', 'Tricky Dick Nixon'
   ]
@@ -166,7 +164,6 @@ class TTTGame
     @board = Board.new
     @human = Human.new
     @computer = Computer.new(COMPUTER_MARKER, POSSIBLE_AI_NAMES.sample)
-    # @current_marker = ASK_
   end
 
   def play
@@ -286,26 +283,6 @@ class TTTGame
     puts ""
   end
 
-  # def determine_who_goes_first
-  #   first_player =
-  #     if human_wants_to_go_first?
-  #       human.marker
-  #     else
-  #       comp_choice = [human.marker, computer.marker].sample
-  #       display_computer_choice(comp_choice)
-  #       comp_choice
-  #     end
-  #   @first_to_move = first_player
-  #   @current_marker = @first_to_move
-  #   clear
-  # end
-
-  # def display_computer_choice(choice)
-  #   to_go_first = choice == computer.marker ? computer.name : human.name
-  #   puts "Computer chose #{to_go_first} to go first!\n"
-  #   sleep 0.5
-  # end
-
   def determine_who_goes_first
     first_player =
       if ask_who_should_decide == 'human'
@@ -315,7 +292,6 @@ class TTTGame
       end
     @first_to_move = first_player
     @current_marker = @first_to_move
-    # binding.pry
     clear
   end
 
