@@ -49,20 +49,28 @@ module Hand
     cards << new_card
   end
 
-  def total 
-    # sum = 0
-    cards.map(&:value).reduce(:+)
+  def total
+    card_vals = cards.map(&:value)
+    sum = card_vals.reduce(:+)
+
+    card_vals.count(11).times do
+      sum -= 10 unless sum < 22
+      # break if sum < 22
+    end
+    sum
   end
 
   def show_hand
-    @cards.map(&:to_s).join(', ')
+    cards.map(&:to_s).join(', ')
   end
 
-  def hit; end
+  # def hit; end
   
   def stay; end
   
-  def busted?; end
+  def busted?
+    total > 22
+  end
 end
 
 class Participant
@@ -85,6 +93,18 @@ class Player < Participant
     name = 'Luke'
     # name = ask_for_name
     super(name)
+  end
+
+  def hit?
+    answer = nil
+    puts "Would you like to hit or stay? (h/s):"
+    loop do 
+      answer = gets.chomp.downcase.strip
+      break if ['h', 's'].include?(answer)
+      puts "Invalid answer. h = hit, s = stay."
+    end
+
+    answer == 'h'
   end
 
   private
@@ -110,13 +130,18 @@ class Dealer < Participant
   # def disp_hand
       # public_hand = @hand.hide_card # or something like that
       # super(public_hand)
-  # end
-  
-  def hit; end
-  
-  def stay; end
-  
-  def busted?; end
+  # end 
+
+  def show_hand(reveal_hidden = false)
+    reveal_hidden ? super : show_public_hand
+  end
+
+  private
+
+  def show_public_hand
+    @cards.slice(1..).map(&:to_s).join(', ') + ', and ?' 
+  end
+
   
 end
 
@@ -134,12 +159,21 @@ class Game
 
   def start
     # welcome_player
-    # binding.pry
-    deal_cards
-    show_initial_cards
-    player_turn
-    dealer_turn
-    show_result
+    loop do
+      loop do
+        deal_cards
+        show_initial_cards
+        player_turn
+        break if human.busted?
+        dealer_turn
+        break if dealer.busted?
+        # show_result # not sure I need this
+      end
+      # need a mthod to handle out put to stdout if someone busted
+      # display_winner
+      break unless play_again?
+    end
+    display_goodbye_message
   end
 
   private
@@ -158,32 +192,61 @@ class Game
 
   def show_initial_cards
     puts "#{human.name} has: #{human.show_hand}"
-    puts "Total: #{human.total}\n\n"
+    puts "Total: #{human.total}"
+    puts ""
     
     puts "#{dealer.name} has: #{dealer.show_hand}"
-    # binding.pry
-    puts "Total: #{dealer.total}\n\n"
+    puts ""
   end
   
-  def clear
-    #for clearing the screen
+  def player_turn
+    # clear
+    loop do
+      if human.hit?
+        binding.pry
+        human.add_card(deck.deal)
+        break if human.busted?
+        puts "You now have: #{human.show_hand}\n\nTotal: #{human.total}"
+        sleep 0.5
+      else
+        break
+      end
+    end
+    puts "#{human.name} chooses to stay." unless human.busted?
   end
 
+  def dealer_turn
+    puts "Dealer shows #{dealer.show_hand}"
+    until dealer.total >= 17
+      puts "Dealer chose to hit!"
+      dealer.add_card(deck.deal)
+      sleep 0.5
+      if dealer.busted?
+        puts "Dealer busted!"
+        break
+      end
+      puts "Dealer now shows #{dealer.show_hand}"
+      sleep 0.5
+    end
+    binding.pry
+    puts "#{dealer.name} chooses to stay." unless dealer.busted?
+  end
 
+  def clear # unless this grows to more than one line you dont need it
+    system 'clear'
+  end
 end
 
 Game.new.start
 # rubocop:enable Layout/TrailingWhitespace
 
 =begin
-progress:
+Progress: Now have a way to show dealer hand (keeping hidden card hidden) and player hand 
+using method with same name `show_hand`. 
 
-User is welcomed with message and prompted for their name upon initialization
-of the Player object which is collaborator in the game class. After getting the
-user name, the program deals 2 cards to the Dealer and the Player.
+Next: need to figure out player turn. How to handle consequences of player hitting-
+(ie adding a card to players cards), cant add card to hand from inside player class 
+because deck is not a collaborator object. Could do in the Game class but the player
+  turn method will get pretty big. 
 
-Next: 
-- need to figure out how want to hand displaying a participants cards
-- also wondering if I should expose getter/setter methods for Participant 'hand's 
-- should I call @hand in Particpant instances @cards instead?. 
 =end
