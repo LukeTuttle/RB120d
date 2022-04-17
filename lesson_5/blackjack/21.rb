@@ -55,7 +55,6 @@ module Hand
 
     card_vals.count(11).times do
       sum -= 10 unless sum < 22
-      # break if sum < 22
     end
     sum
   end
@@ -63,13 +62,17 @@ module Hand
   def show_hand
     cards.map(&:to_s).join(', ')
   end
-
-  # def hit; end
-  
-  def stay; end
   
   def busted?
     total > 22
+  end
+
+  def stay_msg
+    puts "#{name} chose to stay!"
+    sleep 0.5
+    puts "#{name} now shows #{show_hand}"
+    puts ""
+    sleep 0.5
   end
 end
 
@@ -78,6 +81,10 @@ class Participant
   
   def initialize(name)
     @name = name
+    @cards = []
+  end
+
+  def clear_cards
     @cards = []
   end
 
@@ -124,16 +131,8 @@ end
 class Dealer < Participant
   include Hand
 
-  # displaying hand note: if the method to do this is shared with Player
-  # then its not a bad idea to have Dealer have its own version which can
-  # handle showing their cards but hides the hidden one.. maybe something like:
-  # def disp_hand
-      # public_hand = @hand.hide_card # or something like that
-      # super(public_hand)
-  # end 
-
   def show_hand(reveal_hidden = false)
-    reveal_hidden ? super : show_public_hand
+    reveal_hidden ? super() : show_public_hand
   end
 
   private
@@ -141,99 +140,140 @@ class Dealer < Participant
   def show_public_hand
     @cards.slice(1..).map(&:to_s).join(', ') + ', and ?' 
   end
-
-  
 end
 
 class Game
   DEALER_NAMES = ["The Great Khan"]
   
   def initialize
-    welcome_player
     @dealer = Dealer.new(DEALER_NAMES.sample) 
-    @human = Player.new
+    @player = Player.new
     @deck = Deck.new
-    # @current_player ...do I need this? 
-    # what does Game need access to in order to orchestrate the game flow?
   end
 
   def start
-    # welcome_player
+    welcome_player
     loop do
-      loop do
-        deal_cards
-        show_initial_cards
-        player_turn
-        break if human.busted?
-        dealer_turn
-        break if dealer.busted?
-        # show_result # not sure I need this
-      end
-      # need a mthod to handle out put to stdout if someone busted
-      # display_winner
+      single_game
       break unless play_again?
+      reset
     end
     display_goodbye_message
   end
 
   private
 
-  attr_reader :deck, :human, :dealer
+  attr_reader :deck, :player, :dealer
 
+
+  def single_game
+    deal_cards
+    show_initial_cards
+    player_turn
+    return display_result if player.busted?
+    dealer_turn
+    return display_result if dealer.busted?
+    display_result
+  end
+
+  def reset
+    binding.pry
+    system 'clear'
+    @deck = Deck.new
+    player.clear_cards
+    dealer.clear_cards
+  end
+
+  
   def welcome_player
-    puts "Welcome to Twenty One. Good Luck!"
+    puts "Welcome to Twenty One. Good Luck!\n\n"
   end
 
   def deal_cards
     2.times do
-      [human, dealer].each { |plyr| plyr.add_card(deck.deal) }
+      [player, dealer].each { |plyr| plyr.add_card(deck.deal) }
     end
   end
 
   def show_initial_cards
-    puts "#{human.name} has: #{human.show_hand}"
-    puts "Total: #{human.total}"
+    puts "#{player.name} has: #{player.show_hand}"
+    puts "Total: #{player.total}"
     puts ""
     
     puts "#{dealer.name} has: #{dealer.show_hand}"
     puts ""
   end
   
-  def player_turn
-    # clear
+  def display_result
+    !!who_busted? ? display_winner_by_bust : display_winner_by_cards
+  end      
+  
+  def who_busted?
+    return dealer if dealer.busted?
+    return player if player.busted?
+    nil
+  end
+
+  def display_winner_by_bust
+    ppl = [player, dealer].sort_by { |prsn| prsn == who_busted? ? 0 : 1 }
+    puts "#{ppl.first.name} busted!\n\n"
+    puts "======= #{ppl.last.name} Wins! ======="
+    show_final_cards
+  end
+
+  def show_final_cards
+    puts "#{player.name} shows: #{player.show_hand}"
+    puts "Total: #{player.total}"
+    puts ""
+    
+    puts "#{dealer.name} shows: #{dealer.show_hand(true)}"
+    puts "Total: #{dealer.total}"
+    puts ""
+  end
+
+  def display_winner_by_cards
+    winner = [player, dealer].max_by(&:total)
+    puts "======= #{winner.name} Wins! ======="
+    show_final_cards
+    sleep 0.5
+  end
+
+  def play_again?
+    answer = nil
     loop do
-      if human.hit?
-        binding.pry
-        human.add_card(deck.deal)
-        break if human.busted?
-        puts "You now have: #{human.show_hand}\n\nTotal: #{human.total}"
-        sleep 0.5
-      else
-        break
-      end
+      puts "Would you like to play again? (y/n):"
+      answer = gets.chomp.downcase
+      break if %w(y n).include? answer
+      puts "Sorry, must be y or n"
     end
-    puts "#{human.name} chooses to stay." unless human.busted?
+    answer == 'y'
+  end
+
+  def display_goodbye_message
+    puts "Thanks for playing! Goodbye!"
+  end
+  
+  def player_turn
+    loop do
+      break unless player.hit?
+      player.add_card(deck.deal)
+      break if player.busted?
+      #hit_msg could replace code below
+      puts "You now have: #{player.show_hand}\n\nTotal: #{player.total}"
+      sleep 0.5
+    end
+    player.stay_msg unless player.busted?
   end
 
   def dealer_turn
     puts "Dealer shows #{dealer.show_hand}"
+    sleep 0.7
     until dealer.total >= 17
       puts "Dealer chose to hit!"
       dealer.add_card(deck.deal)
-      sleep 0.5
-      if dealer.busted?
-        puts "Dealer busted!"
-        break
-      end
-      puts "Dealer now shows #{dealer.show_hand}"
-      sleep 0.5
+      break if dealer.busted?
     end
-    binding.pry
-    puts "#{dealer.name} chooses to stay." unless dealer.busted?
-  end
-
-  def clear # unless this grows to more than one line you dont need it
-    system 'clear'
+    dealer.stay_msg unless dealer.busted?
   end
 end
 
@@ -241,12 +281,8 @@ Game.new.start
 # rubocop:enable Layout/TrailingWhitespace
 
 =begin
-Progress: Now have a way to show dealer hand (keeping hidden card hidden) and player hand 
-using method with same name `show_hand`. 
+Progress: 
 
-Next: need to figure out player turn. How to handle consequences of player hitting-
-(ie adding a card to players cards), cant add card to hand from inside player class 
-because deck is not a collaborator object. Could do in the Game class but the player
-  turn method will get pretty big. 
+Next: need methods to hand displaying the game result
 
 =end
