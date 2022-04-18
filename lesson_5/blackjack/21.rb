@@ -36,7 +36,7 @@ class Card
   end
 
   def to_s
-    "#{@face} of #{@suit}"
+    "#{@face}|#{@suit}"
   end
 
   def value
@@ -79,7 +79,7 @@ end
 class Participant
   attr_reader :name
   
-  def initialize(name)
+  def initialize(name = nil)
     @name = name
     @cards = []
   end
@@ -96,12 +96,6 @@ end
 class Player < Participant
   include Hand
 
-  def initialize
-    name = 'Luke'
-    # name = ask_for_name
-    super(name)
-  end
-
   def hit?
     answer = nil
     puts "Would you like to hit or stay? (h/s):"
@@ -114,7 +108,11 @@ class Player < Participant
     answer == 'h'
   end
 
-  private
+  def hit_msg
+    puts "You now have: #{show_hand}\n\nTotal: #{total}"
+    sleep 0.5
+    nil
+  end
 
   def ask_for_name
     name = nil
@@ -124,7 +122,7 @@ class Player < Participant
       break unless name.empty?
       puts "I didn't get that, please try again:"
     end
-    name
+    @name = name
   end
 end
 
@@ -152,7 +150,7 @@ class Game
   end
 
   def start
-    welcome_player
+    welcome_player_and_get_name
     loop do
       single_game
       break unless play_again?
@@ -177,22 +175,28 @@ class Game
   end
 
   def reset
-    binding.pry
     system 'clear'
     @deck = Deck.new
     player.clear_cards
     dealer.clear_cards
   end
-
   
-  def welcome_player
-    puts "Welcome to Twenty One. Good Luck!\n\n"
+  def welcome_player_and_get_name
+    system 'clear'
+    puts "===== Welcome to Twenty One! ====="
+    player.ask_for_name
+    puts "Best of luck #{player.name}!\n\n"
+    sleep 0.25
   end
 
   def deal_cards
+    puts "Dealing cards..."
+    puts ""
+    sleep 1.5
     2.times do
       [player, dealer].each { |plyr| plyr.add_card(deck.deal) }
     end
+    system 'clear'
   end
 
   def show_initial_cards
@@ -254,22 +258,23 @@ class Game
   end
   
   def player_turn
+    puts '===== Player Turn ====='
     loop do
       break unless player.hit?
       player.add_card(deck.deal)
-      break if player.busted?
-      #hit_msg could replace code below
-      puts "You now have: #{player.show_hand}\n\nTotal: #{player.total}"
-      sleep 0.5
+      player.busted? ? break : player.hit_msg
     end
     player.stay_msg unless player.busted?
+    puts ""
   end
 
   def dealer_turn
-    puts "Dealer shows #{dealer.show_hand}"
+    puts "===== Dealer Turn ====="
+    puts "#{dealer.name} shows #{dealer.show_hand}"
     sleep 0.7
     until dealer.total >= 17
-      puts "Dealer chose to hit!"
+      sleep 0.7
+      puts "#{dealer.name} chose to hit!"
       dealer.add_card(deck.deal)
       break if dealer.busted?
     end
@@ -282,7 +287,11 @@ Game.new.start
 
 =begin
 Progress: 
+game seems to be functioning as hoped for generally
 
-Next: need methods to hand displaying the game result
-
+Next: 
+- solicit player name
+- make the output prettier
+- refactor code
+-rubocop
 =end
