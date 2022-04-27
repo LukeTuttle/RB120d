@@ -1,49 +1,34 @@
-class InvalidToken < StandardError; end
-class StackEmpty < StandardError; end
-
-require 'pry-byebug'
+class MinilangError < StandardError; end
+class InvalidTokenError < MinilangError; end
+class StackEmptyError < MinilangError; end
 
 class Minilang
   @@rcgnzd_cmnds = %w(PUSH ADD SUB MULT DIV MOD POP PRINT)
 
   def initialize(commands)
-    @register = 0
-    @stack = []
-    @commands = commands.split
+    @commands = commands
   end
 
   def eval
-    cmd_list = commands.map(&:downcase)
-    cmd_list.each do |cmd|
-      begin
-        # binding.pry
-        raise InvalidToken, "Invalid token: #{cmd}" unless valid_token?(cmd)
-        raise(StackEmpty, "Empty Stack!") if stack.empty? && cmd_invalid_when_empty?(cmd)
-        if integer?(cmd)
-          self.register = cmd.to_i
-        else
-          send cmd
-        end
-      rescue InvalidToken => e
-       puts e.message
-       return nil
-      rescue StackEmpty => e
-       puts e.message
-       return nil
-      end
+    @register = 0
+    @stack = []
+    @commands.split.each { |cmd| eval_cmd(cmd) }
+  rescue MinilangError => e
+    puts e.message
+  end
+
+  def eval_cmd(cmd)
+    if @@rcgnzd_cmnds.include?(cmd)
+      send(cmd.downcase)
+    elsif cmd =~ /\A[-+]?\d+\z/
+      self.register = cmd.to_i
+    else
+      raise InvalidTokenError, "Invalid token: #{cmd}"
     end
   end
 
   def integer?(str)
     str =~ /\A[-+]?\d+\z/
-  end
-
-  def valid_token?(cmd)
-    @@rcgnzd_cmnds.include?(cmd.upcase) || integer?(cmd)
-  end
-
-  def cmd_invalid_when_empty?(cmd)
-    (@@rcgnzd_cmnds - ['PUSH', 'PRINT']).include?(cmd.upcase)
   end
 
   def push
@@ -63,14 +48,15 @@ class Minilang
   end
 
   def div
-    self.register = register / stack.pop
+    self.register /= stack.pop
   end
 
   def mod
-    self.register = register % stack.pop
+    self.register %= stack.pop
   end
 
   def pop
+    raise(StackEmptyError, "Empty Stack!") if stack.empty?
     self.register = stack.pop
   end
 
