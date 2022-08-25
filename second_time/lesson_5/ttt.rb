@@ -1,3 +1,5 @@
+require 'pry-byebug'
+
 class TTTGame
   MAX_PLAYERS = 3
   VALID_TOKENS = [('A'..'Z').to_a, ('a'..'z').to_a].flatten
@@ -38,10 +40,10 @@ class TTTGame
   def user_chooses_board_size
     size = nil
     loop do
-      puts "Please choose the size of the board:"
+      puts "Please choose the size of the board (3, 5, 9):"
       size = gets.chomp
-      break unless size.to_i.to_s != size
-      puts "Error: Please enter an interger."
+      break if [3, 5, 9].include?(size.to_i)
+      puts "Error: Please enter 3, 5, or 9."
     end
     size.to_i
   end
@@ -73,15 +75,15 @@ class TTTGame
   def players_take_turns
     loop do
       players.each do |player|
-        execute_player_turn(player)
+        execute_turn(player)
         board.update_status
         break unless board.status == 'winnable'
       end
       break unless board.status == 'winnable'
     end
   end
-
-  def execute_player_turn(player)
+  
+  def execute_turn(player)
     board.display if player.class == Human
     square_id = player.choose_square
     board.update_square(player, square_id)
@@ -145,8 +147,10 @@ class Human < Player
     token
   end
 
-  def take_turn
-    #should return the id for a square
+  def choose_square # this obviously will be built out more, just simplifying to make sure other code works
+    puts "Choose a square"
+    answer = gets.chomp.chars
+    [answer.first.to_i - 1, answer.last.to_i - 1]
   end
 end
 
@@ -164,7 +168,7 @@ class Computer < Player
     (TTTGame::VALID_TOKENS - unavail_chars).sample
   end
 
-  def take_turn
+  def choose_square
     #should return the id for a square
   end
 end
@@ -174,23 +178,71 @@ class Board
 
   def initialize(size)
     @size = size
-    @squares = []
+    @squares = create_squares(size)
   end
 
-  def update_square(player, index); end
+  def create_squares(size)
+    grid = []
+    1.upto(size) do |row_i|
+      row = []
+      1.upto(size) { |col_i| row << Square.new([row_i, col_i]) }
+      grid << row
+    end
+    grid
+  end
+
+  def display
+    draw_grid
+  end
+
+  def draw_grid
+    # binding.pry
+    squares.each do |row|
+      draw_row(size, row)
+      draw_seperator_line unless row.equal?(squares.last)
+    end
+  end
+
+  def draw_row(size, arr)
+    middle_line = ''
+    arr.each do |square|
+      cell = "  #{square.token}  "
+      cell << '|' unless square.equal?(arr.last)
+      middle_line << cell
+    end
+
+    top_bottom_line =  "#{'     |' * (size - 1)}     "
+    puts top_bottom_line
+    puts middle_line
+    puts top_bottom_line
+  end
+
+  def draw_seperator_line
+    puts "#{'-----+' * (size - 1)}-----"
+  end
+  
+  def update_square(player, index)
+    binding.pry
+    squares[index.first][index.last].token = player.token
+  end
 
   def update_status; end
-
-  def display; end
 end
 
 class Square
   attr_accessor :token
 
   def initialize(position)
-    @token = nil
+    @token = ' '
     @id = {position => @token}
   end
 end
 
 TTTGame.new.start
+
+# notes: 
+=begin
+I need to restructure the Square class. It doesn't need an id just a token. The board can store the squares in a hash wherein each square is stored with a key.
+The key will be an array object [row, col]. This will require modifying how the board draws the grid and how it creates the square. The benefits are that it should make accessing the squares much 
+easiers because you wont have to index deeply through arrays and hashes. It's not a bad idea to draw it all out visually–how it flows and how things are accessed. 
+=end
