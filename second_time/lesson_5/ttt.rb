@@ -150,7 +150,7 @@ class Human < Player
   def choose_square # this obviously will be built out more, just simplifying to make sure other code works
     puts "Choose a square"
     answer = gets.chomp.chars
-    [answer.first.to_i - 1, answer.last.to_i - 1]
+    [answer.first.to_i, answer.last.to_i]
   end
 end
 
@@ -182,32 +182,38 @@ class Board
   end
 
   def create_squares(size)
-    grid = []
+    keys = []
     1.upto(size) do |row_i|
-      row = []
-      1.upto(size) { |col_i| row << Square.new([row_i, col_i]) }
-      grid << row
+      1.upto(size) { |col_i| keys << [row_i, col_i] }
     end
-    grid
+
+    sq_hsh = Hash.new
+    keys.each { |key| sq_hsh[key] = Square.new }
+    @squares = sq_hsh
   end
 
   def display
     draw_grid
   end
 
-  def draw_grid
-    # binding.pry
-    squares.each do |row|
-      draw_row(size, row)
-      draw_seperator_line unless row.equal?(squares.last)
+  def draw_grid # this has to be rethought
+    rows = []
+    1.upto(size) do |row_i|
+      rows << squares.filter { |k, _| k.first == row_i }
     end
+
+    rows.each_with_index do |row, i|
+      draw_row(size, row)
+      draw_seperator_line unless i == size - 1
+    end
+    nil
   end
 
   def draw_row(size, arr)
     middle_line = ''
-    arr.each do |square|
+    arr.each do |key, square|
       cell = "  #{square.token}  "
-      cell << '|' unless square.equal?(arr.last)
+      cell << '|' unless key.last == size 
       middle_line << cell
     end
 
@@ -220,10 +226,10 @@ class Board
   def draw_seperator_line
     puts "#{'-----+' * (size - 1)}-----"
   end
-  
-  def update_square(player, index)
+
+  def update_square(player, key)
     binding.pry
-    squares[index.first][index.last].token = player.token
+    squares[key].token = player.token
   end
 
   def update_status; end
@@ -232,9 +238,9 @@ end
 class Square
   attr_accessor :token
 
-  def initialize(position)
+  def initialize
     @token = ' '
-    @id = {position => @token}
+    # @id = {position => @token}
   end
 end
 
