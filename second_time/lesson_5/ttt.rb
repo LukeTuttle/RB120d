@@ -1,5 +1,21 @@
 require 'pry-byebug'
 
+module SqWinnable #square + winnable
+  def get_winning_token(squares)
+    binding.pry
+    winning_lines = get_winning_lines(Integer.sqrt(squares.size))
+  end
+
+  def get_winning_lines(size)
+    lines = []
+    cells = (1..size).to_a.repeated_permutation(2)
+    cells.each_slice(size) { |line| lines << line << line.map(&:reverse) }
+
+    diagonals = [(1..size).zip((1..size)), (1..size).zip((1..size).to_a.reverse)]
+    lines.concat(diagonals)
+  end
+end
+
 class TTTGame
   MAX_PLAYERS = 3
   VALID_TOKENS = [('A'..'Z').to_a, ('a'..'z').to_a].flatten
@@ -76,16 +92,15 @@ class TTTGame
     loop do
       players.each do |player|
         execute_turn(player)
-        board.update_status
         break unless board.status == 'winnable'
       end
       break unless board.status == 'winnable'
     end
   end
-  
+
   def execute_turn(player)
     board.display if player.class == Human
-    square_id = player.choose_square
+    square_id = player.choose_square(board.squares)
     board.update_square(player, square_id)
     board.display
   end
@@ -112,6 +127,7 @@ class TTTGame
   end
 end
 
+
 class Player
   attr_accessor :name, :token, :order
 
@@ -119,8 +135,6 @@ class Player
     @name = nil
     @token = nil
   end
-
-  def place_token; end
 end
 
 class Human < Player
@@ -147,7 +161,7 @@ class Human < Player
     token
   end
 
-  def choose_square # this obviously will be built out more, just simplifying to make sure other code works
+  def choose_square(squares)
     puts "Choose a square"
     answer = gets.chomp.chars
     [answer.first.to_i, answer.last.to_i]
@@ -168,17 +182,25 @@ class Computer < Player
     (TTTGame::VALID_TOKENS - unavail_chars).sample
   end
 
-  def choose_square
-    #should return the id for a square
+  def choose_square(squares)
+    avail_squares = squares.select { |_, square| square.token == ' '} # this could probably be extracted to a module so that multiple classes can easily check which squares are available
+    avail_squares.keys.sample # eventually this will include the logic for strategy
   end
 end
 
 class Board
-  attr_reader :squares, :status, :size
+  include SqWinnable
+
+  attr_reader :squares, :size
 
   def initialize(size)
     @size = size
     @squares = create_squares(size)
+  end
+
+  def status
+    get_winning_token(squares)
+    update_status
   end
 
   def create_squares(size)
@@ -196,7 +218,7 @@ class Board
     draw_grid
   end
 
-  def draw_grid # this has to be rethought
+  def draw_grid
     rows = []
     1.upto(size) do |row_i|
       rows << squares.filter { |k, _| k.first == row_i }
@@ -228,11 +250,21 @@ class Board
   end
 
   def update_square(player, key)
-    binding.pry
     squares[key].token = player.token
   end
 
-  def update_status; end
+  def board_full?
+    squares.all? { |_, square| square.token != ' ' }
+  end
+
+  private
+
+  def update_status
+    get_winning_token(squares)
+    self.status = board_full? ? 'full' : 'winnable' # I've hard coded winnable here to make progress in the turn taking mechanism
+  end
+
+  attr_writer :status
 end
 
 class Square
@@ -240,15 +272,7 @@ class Square
 
   def initialize
     @token = ' '
-    # @id = {position => @token}
   end
 end
 
 TTTGame.new.start
-
-# notes: 
-=begin
-I need to restructure the Square class. It doesn't need an id just a token. The board can store the squares in a hash wherein each square is stored with a key.
-The key will be an array object [row, col]. This will require modifying how the board draws the grid and how it creates the square. The benefits are that it should make accessing the squares much 
-easiers because you wont have to index deeply through arrays and hashes. It's not a bad idea to draw it all out visually–how it flows and how things are accessed. 
-=end
