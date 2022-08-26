@@ -2,11 +2,17 @@ require 'pry-byebug'
 
 module SqWinnable #square + winnable
   def get_winning_token(squares)
-    binding.pry
-    winning_lines = get_winning_lines(Integer.sqrt(squares.size))
+    lines = get_lines(Integer.sqrt(squares.size))
+
+    lines.each do |line|
+      target_token = squares[line.first].token
+      next if target_token == ' '
+      return target_token if line.all? { |cell_idx| squares[cell_idx].token == target_token}
+    end
+    nil
   end
 
-  def get_winning_lines(size)
+  def get_lines(size)
     lines = []
     cells = (1..size).to_a.repeated_permutation(2)
     cells.each_slice(size) { |line| lines << line << line.map(&:reverse) }
@@ -17,6 +23,8 @@ module SqWinnable #square + winnable
 end
 
 class TTTGame
+  include SqWinnable
+
   MAX_PLAYERS = 3
   VALID_TOKENS = [('A'..'Z').to_a, ('a'..'z').to_a].flatten
 
@@ -31,10 +39,12 @@ class TTTGame
     greeting
     set_grid_size
     set_player_names_and_tokens
-    loop do 
+    loop do
+      board.display
       players_take_turns
       display_outcome
       break unless play_again?
+      @board = Board.new(board.size) # this preserves the board size initially chose
     end
     goodbye
   end
@@ -92,38 +102,57 @@ class TTTGame
     loop do
       players.each do |player|
         execute_turn(player)
-        break unless board.status == 'winnable'
+        puts ''
+        board.display
+        break if board.status == 'closed'
       end
-      break unless board.status == 'winnable'
+      break if board.status == 'closed'
     end
   end
 
   def execute_turn(player)
-    board.display if player.class == Human
     square_id = player.choose_square(board.squares)
     board.update_square(player, square_id)
-    board.display
   end
 
   def display_outcome
-    board.status == 'unwinnable' ? display_game_unwinnable : display_winner
+    if !!get_winning_token(board.squares)
+      winner = players.select { |player| player.token == get_winning_token(board.squares) }.first
+      display_winner(winner.name)
+    else
+      display_game_is_draw
+    end
   end
 
-  def display_game_unwinnable
-    #something like 'the board is such  that the game is unwinnable'
+  def display_winner(name)
+    puts ''
+    puts ''
+    puts "====#{name} won!===="
   end
 
-  def display_winner
-    winner = determine_winner
-    #something like congrats winner won!
-  end
-
-  def determine_winner
-    # looks at the board and returns the player who won
+  def display_game_is_draw
+    if board.is_full?
+      puts "Game is a draw!"
+    elsif boad.is_a_draw?
+      puts "No winning moves remain. Games is a draw!"
+    else
+      puts 'Error: game ended for unknown reasons'
+    end
   end
 
   def play_again?
-    # should reset the game board if user choose to play again
+    puts "Do you want to play again? (y/n):"
+    input = nil
+    loop do
+      input = gets.chomp.downcase
+      break if 'yn'.chars.include?(input)
+      puts "Error: Please enter 'y' or 'n'."
+    end
+    input == 'y'
+  end
+
+  def goodbye
+    puts "Thanks for playing! Goodbye!"
   end
 end
 
@@ -198,9 +227,9 @@ class Board
     @squares = create_squares(size)
   end
 
-  def status
-    get_winning_token(squares)
-    update_status
+  def status(update = true)
+    update_status if update
+    @status
   end
 
   def create_squares(size)
@@ -253,15 +282,18 @@ class Board
     squares[key].token = player.token
   end
 
-  def board_full?
+  def is_full?
     squares.all? { |_, square| square.token != ' ' }
+  end
+
+  def is_a_draw?
+    false # hard coded for now
   end
 
   private
 
   def update_status
-    get_winning_token(squares)
-    self.status = board_full? ? 'full' : 'winnable' # I've hard coded winnable here to make progress in the turn taking mechanism
+    self.status = (is_full? || is_a_draw? || !!get_winning_token(squares)) ? 'closed' : 'open'
   end
 
   attr_writer :status
@@ -276,3 +308,17 @@ class Square
 end
 
 TTTGame.new.start
+
+=begin
+At this point the game functions with no major issues as long as the user knows what they're doing
+What needs to happen next is:
+ - incorporate computer logic
+ - give better prompts for how to enter which cell you want to place a maker in
+ - incorporte the player object's name attribute into the prompt indiciating it is their turn
+ - validate user input during turn
+ - make visuals a bit better
+ - add features like score keeping, and ending as soon as a draw is certain
+ - dont worry about displaying which characters are alrady taken at the beginning, just give an error msg if 
+   usr tries to choose one that is taken already
+
+=end
