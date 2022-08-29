@@ -20,6 +20,10 @@ module SqWinnable #square + winnable
     diagonals = [(1..size).zip((1..size)), (1..size).zip((1..size).to_a.reverse)]
     lines.concat(diagonals)
   end
+
+  def avail_squares(squares)
+    squares.select { |id, square| square.token == ' ' }.keys
+  end
 end
 
 class TTTGame
@@ -39,8 +43,8 @@ class TTTGame
     greeting
     set_grid_size
     set_player_names_and_tokens
+    confirm_game_start
     loop do
-      board.display
       players_take_turns
       display_outcome
       break unless play_again?
@@ -75,15 +79,42 @@ class TTTGame
   end
 
   def set_player_names_and_tokens
-    choose_n_players('human').times { |_| players.push(Human.new) }
-    choose_n_players('computer').times { |_| players.push(Computer.new) }
+    [Human, Computer].each do |type|
+      choose_n_players(type).times { |_| players.push(type.new) }
+    end
 
-    players.each { |player| player.name = player.choose_name }
-    puts "Players include: #{players.map(&:name)}"
-    players.each { |player| player.token = player.choose_token(unavail_chars) }
+    players.each do |player|
+      player.name = player.choose_name
+      player.token = player.choose_token(unavail_chars)
+    end
+  end
+
+  def confirm_game_start
+    puts ''
+    puts "======= Players and Tokens ======="
+    [Human, Computer].each { |type| puts "#{type} players: #{format_names_and_tokens(type)}" }
+    puts ''
+    puts "During your turn, choose a square by entering the row#, col# as shown below:"
+    display_grid_ids
+    puts 'Press any key to begin the match'
+    gets.chomp
+    system 'clear'
+  end
+
+  def display_grid_ids
+    board.squares.map { |id, square| square.token = id.to_s.delete("[] ") }
+    board.display(true) # the true formats the board to accept the square ids
+    board.squares.map { |_, square| square.token = ' ' }
+  end
+
+  def format_names_and_tokens(type)
+    players_subset = players.select { |player| player.class == type }
+    names_and_tokens = players_subset.map { |player| "#{player.name}: '#{player.token}'" }
+    names_and_tokens.join(', ')
   end
 
   def choose_n_players(type)
+    type = type.to_s.downcase
     n = nil
     loop do
       puts "How many #{type} players are there?:"
@@ -99,8 +130,10 @@ class TTTGame
   end
 
   def players_take_turns
+    board.display
     loop do
       players.each do |player|
+        # puts "#{player.name}'s turn!"
         execute_turn(player)
         puts ''
         board.display
@@ -113,6 +146,11 @@ class TTTGame
   def execute_turn(player)
     square_id = player.choose_square(board.squares)
     board.update_square(player, square_id)
+    if player.class == Computer
+      sleep 0.8
+      system 'clear'
+      puts "#{player.name} chose #{square_id.to_s.delete('[] ')}!"
+    end
   end
 
   def display_outcome
@@ -156,8 +194,9 @@ class TTTGame
   end
 end
 
-
 class Player
+  include SqWinnable
+
   attr_accessor :name, :token, :order
 
   def initialize
@@ -180,8 +219,7 @@ class Human < Player
 
   def choose_token(unavail_chars)
     token = nil
-    # unavail_chars may show up weird
-    puts "Please choose a token to mark your board squares. #{unavail_chars} are already taken"
+    puts "Please choose a token (A-Z) to mark your board squares."
     loop do
       token = gets.chomp
       break unless !(TTTGame::VALID_TOKENS.include?(token)) || (unavail_chars.include?(token))
@@ -191,9 +229,16 @@ class Human < Player
   end
 
   def choose_square(squares)
-    puts "Choose a square"
-    answer = gets.chomp.chars
-    [answer.first.to_i, answer.last.to_i]
+    puts "#{name}'s turn!"
+    puts "Please choose a square by entering a row#, col#:"
+    answer = nil
+    loop do
+      answer = gets.chomp.chars
+      answer = answer.select { |char| char.to_i.to_s == char }.map(&:to_i)
+      break if avail_squares(squares).include?(answer) && answer.size == 2
+      puts "Error: That square is already taken or the input was invalid. Please enter: row#, col#"
+    end
+    [answer.first, answer.last]
   end
 end
 
@@ -212,8 +257,11 @@ class Computer < Player
   end
 
   def choose_square(squares)
-    avail_squares = squares.select { |_, square| square.token == ' '} # this could probably be extracted to a module so that multiple classes can easily check which squares are available
-    avail_squares.keys.sample # eventually this will include the logic for strategy
+    sleep 0.5
+    # system 'clear'
+    choice = avail_squares(squares).sample # eventually this will include the logic for strategy
+    # puts "#{name} chose #{choice.to_s.delete('[] ')}!"
+    choice
   end
 end
 
@@ -243,28 +291,28 @@ class Board
     @squares = sq_hsh
   end
 
-  def display
-    draw_grid
+  def display(format_for_id = false)
+    draw_grid(format_for_id)
   end
 
-  def draw_grid
+  def draw_grid(format_for_id = false)
     rows = []
     1.upto(size) do |row_i|
       rows << squares.filter { |k, _| k.first == row_i }
     end
 
     rows.each_with_index do |row, i|
-      draw_row(size, row)
+      draw_row(size, row, format_for_id)
       draw_seperator_line unless i == size - 1
     end
     nil
   end
 
-  def draw_row(size, arr)
+  def draw_row(size, arr, format_for_id)
     middle_line = ''
     arr.each do |key, square|
-      cell = "  #{square.token}  "
-      cell << '|' unless key.last == size 
+      cell = format_for_id ? " #{square.token} " : "  #{square.token}  "
+      cell << '|' unless key.last == size
       middle_line << cell
     end
 
