@@ -21,8 +21,14 @@ module SqWinnable #square + winnable
     lines.concat(diagonals)
   end
 
+  def middle_square_avail?(squares)
+    true
+    # mid = (squares.size / 2.0).ceil
+    # squares[[mid, mid]].token == ' '
+  end
+
   def avail_squares(squares)
-    squares.select { |id, square| square.token == ' ' }.keys
+    squares.select { |_, square| square.token == ' ' }.keys
   end
 end
 
@@ -48,6 +54,7 @@ class TTTGame
       players_take_turns
       display_outcome
       break unless play_again?
+      system 'clear'
       @board = Board.new(board.size) # this preserves the board size initially chose
     end
     goodbye
@@ -133,7 +140,6 @@ class TTTGame
     board.display
     loop do
       players.each do |player|
-        # puts "#{player.name}'s turn!"
         execute_turn(player)
         puts ''
         board.display
@@ -258,12 +264,53 @@ class Computer < Player
 
   def choose_square(squares)
     sleep 0.5
-    # system 'clear'
-    choice = avail_squares(squares).sample # eventually this will include the logic for strategy
-    # puts "#{name} chose #{choice.to_s.delete('[] ')}!"
-    choice
+    # binding.pry
+    if !!find_own_winning_move(squares)
+      # binding.pry
+      find_own_winning_move(squares)
+    elsif !!find_others_winning_move(squares)
+      find_others_winning_move(squares)
+    elsif middle_square_avail?(squares)
+      mid = Integer.sqrt(squares.size)
+      [mid, mid]
+    else
+      avail_squares(squares).sample
+    end
+  end
+
+  def find_others_winning_move(squares)
+    lines = get_lines(squares.size)
+    lines.each do |line|
+      line = squares.select { |id, _| line.include?(id) }
+      line_tokens = line.values.map(&:token)
+      next unless line_tokens.uniq.size == 2 && line_tokens.count(' ') == 1
+      winning_move = line.select { |_, square| square.token == ' ' }.keys
+      return winning_move.flatten
+    end
+    nil
+  end
+
+  def find_own_winning_move(squares)
+    lines = get_lines(squares.size)
+    lines.each do |line|
+      line = squares.select { |id, _| line.include?(id)}
+      line_tokens = line.values.map(&:token)
+      next unless line_tokens.count(token) == squares.size - 1
+      winning_move = line.select { |_, square| square.token == ' ' }.keys
+      return winning_move.flatten
+    end
+    nil
   end
 end
+
+  # Write a method which takes an array of square objects and returns the id of an available square for a line
+#   which is under threat (i.e. has `size`-1 squares with the same non- ' ' token in the line).
+#   algorith
+#   - iterate through the set of lines
+#   - if a line has more than one player token then skip and check the next line
+#   - if a line has only one player token, get a count of its appearances; if count less than size -1 skip and check the next line
+#   - if line is under threat, return the square id of the square that is available
+#   - if no lines are under threat, return nil
 
 class Board
   include SqWinnable
@@ -361,12 +408,18 @@ TTTGame.new.start
 At this point the game functions with no major issues as long as the user knows what they're doing
 What needs to happen next is:
  - incorporate computer logic
- - give better prompts for how to enter which cell you want to place a maker in
- - incorporte the player object's name attribute into the prompt indiciating it is their turn
- - validate user input during turn
  - make visuals a bit better
  - add features like score keeping, and ending as soon as a draw is certain
- - dont worry about displaying which characters are alrady taken at the beginning, just give an error msg if 
-   usr tries to choose one that is taken already
+=end
+
+=begin
+# Write a method which takes an array of square objects and returns the id of an available square for a line
+#   which is under threat (i.e. has `size`-1 squares with the same non- ' ' token in the line).
+#   algorith
+#   - iterate through the set of lines
+#   - if a line has more than one player token then skip and check the next line
+#   - if a line has only one player token, get a count of its appearances; if count less than size -1 skip and check the next line
+#   - if line is under threat, return the square id of the square that is available
+#   - if no lines are under threat, return nil
 
 =end
