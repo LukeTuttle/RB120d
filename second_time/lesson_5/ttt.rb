@@ -49,6 +49,7 @@ class TTTGame
     greeting
     set_grid_size
     set_player_names_and_tokens
+    choose_who_goes_first
     confirm_game_start
     loop do
       players_take_turns
@@ -63,6 +64,40 @@ class TTTGame
   private
 
   attr_writer :players, :board
+
+  def choose_who_goes_first
+    display_options_for_who_goes_first
+    choice = user_selects_who_goes_first
+    player_class = case choice
+                   when 1 then Human
+                   when 2 then Computer
+                   when 3 then [Human, Computer].sample
+                   end
+    set_first_player(player_class)
+  end
+
+  def set_first_player(player_class)
+    first_player = players.select { |player| player.class == player_class }.sample
+    players.delete_if { |player| player.equal?(first_player) }
+    players.unshift(first_player)
+  end
+
+  def user_selects_who_goes_first
+    choice = nil
+    loop do
+      choice = gets.chomp
+      break if (1..3) === choice.to_i
+      puts "Error: Please enter a number 1-3."
+    end
+    choice.to_i
+  end
+
+  def display_options_for_who_goes_first
+    puts "How do you want to choose who goes first?:"
+    puts "  1. Random human player goes first"
+    puts "  2. Random computer player goes first"
+    puts "  3. A random player, either human or computer goes first"
+  end
 
   def score_limit_reached
     players.any? { |player| player.score == SCORE_LIMIT } 
@@ -130,8 +165,9 @@ class TTTGame
     loop do
       puts "How many #{type} players are there?:"
       n = gets.chomp
-      break unless n.to_i.to_s != n && (1..MAX_PLAYERS) === n.to_i
-      puts "Error: Please enter an integer between 1 and #{MAX_PLAYERS}."
+      binding.pry
+      break if n.to_i.to_s == n && (n.to_i + players.size) <= MAX_PLAYERS
+      puts "Error: The maximum number of players allowed is #{MAX_PLAYERS}. Please enter an integer between 1 and #{MAX_PLAYERS - players.size}."
     end
     n.to_i
   end
@@ -435,7 +471,8 @@ end
 TTTGame.new.start
 
 =begin
-What needs to happen next is:
- - add features like score keeping, and ending as soon as a draw is certain
+Features to be added:
+ - choosing who goes first
+ - ending as soon as a draw is certain
 =end
 
