@@ -36,6 +36,7 @@ class TTTGame
 
   MAX_PLAYERS = 3
   VALID_TOKENS = [('A'..'Z').to_a, ('a'..'z').to_a].flatten
+  SCORE_LIMIT = 2
 
   attr_reader :players, :board
 
@@ -51,7 +52,7 @@ class TTTGame
     confirm_game_start
     loop do
       players_take_turns
-      display_outcome
+      handle_outcome
       break unless play_again?
       system 'clear'
       @board = Board.new(board.size) # this preserves the board size initially chose
@@ -62,6 +63,10 @@ class TTTGame
   private
 
   attr_writer :players, :board
+
+  def score_limit_reached
+    players.any? { |player| player.score == SCORE_LIMIT } 
+  end
 
   def greeting
     system 'clear'
@@ -158,13 +163,18 @@ class TTTGame
     end
   end
 
-  def display_outcome
+  def handle_outcome
     if !!get_winning_token(board.squares)
-      winner = players.select { |player| player.token == get_winning_token(board.squares) }.first
+      winner = find_game_winner
+      winner.increment_score
       display_winner(winner.name)
     else
       display_game_is_draw
     end
+  end
+
+  def find_game_winner
+    players.select { |player| player.token == get_winning_token(board.squares) }.first
   end
 
   def display_winner(name)
@@ -184,6 +194,16 @@ class TTTGame
   end
 
   def play_again?
+    display_score
+    if score_limit_reached
+      display_match_winner
+      false
+    else
+      ask_usr_to_play_again
+    end
+  end
+
+  def ask_usr_to_play_again
     puts "Do you want to play again? (y/n):"
     input = nil
     loop do
@@ -192,6 +212,22 @@ class TTTGame
       puts "Error: Please enter 'y' or 'n'."
     end
     input == 'y'
+  end
+
+  def display_match_winner
+    match_winner = players.select { |player| player.score >= SCORE_LIMIT }.first
+    sleep 0.5
+    puts "||****=====----#{match_winner.name.upcase} REACHED THE MAX SCORE!----=====****||"
+    puts ''
+  end
+
+  def display_score
+    puts ''
+    puts "====*Score Board*===="
+    players.each do |player|
+      puts "#{player.name} : #{player.score}"
+    end
+    puts ''
   end
 
   def goodbye
@@ -203,11 +239,21 @@ class Player
   include SqWinnable
 
   attr_accessor :name, :token, :order
+  attr_reader :score
 
   def initialize
     @name = nil
     @token = nil
+    @score = 0
   end
+
+  def increment_score
+    self.score += 1
+  end
+
+  private
+
+  attr_writer :score
 end
 
 class Human < Player
@@ -262,7 +308,7 @@ class Computer < Player
   end
 
   def choose_square(squares)
-    sleep 0.5
+    sleep 0.3
     winning_move = find_winning_move(squares)
     if !!winning_move
       winning_move
@@ -294,22 +340,6 @@ class Computer < Player
     end
     nil
   end
-
-  # def find_winning_move(squares, offense = true)
-  #   grid_size = Integer.sqrt(squares.size)
-  #   get_lines(grid_size).each do |line|
-  #     line_tokens = line.map { |id| squares[id].token }
-  #     if offense
-  #       next unless line_tokens.count(token) == grid_size - 1
-  #     else
-  #       next unless line_tokens.uniq.size == 2 && line_tokens.count(' ') == 1
-  #     end
-  #     binding.pry
-  #     winning_move = squares.select { |id, square| square.token == ' ' && line.include?(id) }.keys.flatten
-  #     return winning_move.empty? ? nil : winning_move
-  #   end
-  #   # nil
-  # end
 end
 
 class Board
@@ -405,10 +435,7 @@ end
 TTTGame.new.start
 
 =begin
-At this point the game functions with no major issues as long as the user knows what they're doing
 What needs to happen next is:
- - verify computer logic is working
-    - it skips its 2nd turn for some reason
  - add features like score keeping, and ending as soon as a draw is certain
 =end
 
