@@ -22,9 +22,8 @@ module SqWinnable #square + winnable
   end
 
   def middle_square_avail?(squares)
-    true
-    # mid = (squares.size / 2.0).ceil
-    # squares[[mid, mid]].token == ' '
+    mid = (Integer.sqrt(squares.size) / 2.0).ceil
+    squares[[mid, mid]].token == ' '
   end
 
   def avail_squares(squares)
@@ -264,53 +263,54 @@ class Computer < Player
 
   def choose_square(squares)
     sleep 0.5
-    # binding.pry
-    if !!find_own_winning_move(squares)
-      # binding.pry
-      find_own_winning_move(squares)
-    elsif !!find_others_winning_move(squares)
-      find_others_winning_move(squares)
+    winning_move = find_winning_move(squares)
+    if !!winning_move
+      winning_move
     elsif middle_square_avail?(squares)
-      mid = Integer.sqrt(squares.size)
+      mid = (Integer.sqrt(squares.size) / 2.0).ceil
       [mid, mid]
     else
       avail_squares(squares).sample
     end
   end
 
-  def find_others_winning_move(squares)
-    lines = get_lines(squares.size)
-    lines.each do |line|
-      line = squares.select { |id, _| line.include?(id) }
-      line_tokens = line.values.map(&:token)
-      next unless line_tokens.uniq.size == 2 && line_tokens.count(' ') == 1
-      winning_move = line.select { |_, square| square.token == ' ' }.keys
-      return winning_move.flatten
+  def find_winning_move(squares)
+    lines = get_lines(Integer.sqrt(squares.size))
+    lines_of_sqs = lines.map { |line| squares.slice(*line) }
+    search_lines(lines_of_sqs)
+  end
+
+  def search_lines(lines_of_sqs)
+    grid_size = ((lines_of_sqs.size - 2) / 2)
+
+    lines_of_sqs.each do |sqs_in_line|
+      sqs_in_line = sqs_in_line.transform_values(&:token)
+      tokens_tally = sqs_in_line.values.tally
+
+      if tokens_tally[' '] == 1
+        return sqs_in_line.key(' ').flatten if tokens_tally[token] == grid_size - 1 # offense
+        return sqs_in_line.key(' ').flatten if tokens_tally.size == 2 # defense
+      end
     end
     nil
   end
 
-  def find_own_winning_move(squares)
-    lines = get_lines(squares.size)
-    lines.each do |line|
-      line = squares.select { |id, _| line.include?(id)}
-      line_tokens = line.values.map(&:token)
-      next unless line_tokens.count(token) == squares.size - 1
-      winning_move = line.select { |_, square| square.token == ' ' }.keys
-      return winning_move.flatten
-    end
-    nil
-  end
+  # def find_winning_move(squares, offense = true)
+  #   grid_size = Integer.sqrt(squares.size)
+  #   get_lines(grid_size).each do |line|
+  #     line_tokens = line.map { |id| squares[id].token }
+  #     if offense
+  #       next unless line_tokens.count(token) == grid_size - 1
+  #     else
+  #       next unless line_tokens.uniq.size == 2 && line_tokens.count(' ') == 1
+  #     end
+  #     binding.pry
+  #     winning_move = squares.select { |id, square| square.token == ' ' && line.include?(id) }.keys.flatten
+  #     return winning_move.empty? ? nil : winning_move
+  #   end
+  #   # nil
+  # end
 end
-
-  # Write a method which takes an array of square objects and returns the id of an available square for a line
-#   which is under threat (i.e. has `size`-1 squares with the same non- ' ' token in the line).
-#   algorith
-#   - iterate through the set of lines
-#   - if a line has more than one player token then skip and check the next line
-#   - if a line has only one player token, get a count of its appearances; if count less than size -1 skip and check the next line
-#   - if line is under threat, return the square id of the square that is available
-#   - if no lines are under threat, return nil
 
 class Board
   include SqWinnable
@@ -407,19 +407,8 @@ TTTGame.new.start
 =begin
 At this point the game functions with no major issues as long as the user knows what they're doing
 What needs to happen next is:
- - incorporate computer logic
- - make visuals a bit better
+ - verify computer logic is working
+    - it skips its 2nd turn for some reason
  - add features like score keeping, and ending as soon as a draw is certain
 =end
 
-=begin
-# Write a method which takes an array of square objects and returns the id of an available square for a line
-#   which is under threat (i.e. has `size`-1 squares with the same non- ' ' token in the line).
-#   algorith
-#   - iterate through the set of lines
-#   - if a line has more than one player token then skip and check the next line
-#   - if a line has only one player token, get a count of its appearances; if count less than size -1 skip and check the next line
-#   - if line is under threat, return the square id of the square that is available
-#   - if no lines are under threat, return nil
-
-=end
