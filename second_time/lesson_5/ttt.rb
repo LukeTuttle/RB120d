@@ -1,13 +1,13 @@
-require 'pry-byebug'
-
-module SqWinnable #square + winnable
+module SqWinnable # square + winnable
   def get_winning_token(squares)
     lines = get_lines(Integer.sqrt(squares.size))
 
     lines.each do |line|
       target_token = squares[line.first].token
       next if target_token == ' '
-      return target_token if line.all? { |cell_idx| squares[cell_idx].token == target_token}
+      return target_token if line.all? do |cell_idx|
+        squares[cell_idx].token == target_token
+      end
     end
     nil
   end
@@ -51,19 +51,23 @@ class TTTGame
     set_player_names_and_tokens
     choose_who_goes_first
     confirm_game_start
-    loop do
-      players_take_turns
-      handle_outcome
-      break unless play_again?
-      system 'clear'
-      @board = Board.new(board.size) # this preserves the board size initially chose
-    end
+    main_game_loop
     goodbye
   end
 
   private
 
   attr_writer :players, :board
+
+  def main_game_loop
+    loop do
+      players_take_turns
+      handle_outcome
+      break unless play_again?
+      system 'clear'
+      @board = Board.new(board.size) # preserves the board size initially chose
+    end
+  end
 
   def choose_who_goes_first
     display_options_for_who_goes_first
@@ -73,11 +77,14 @@ class TTTGame
                    when 2 then Computer
                    when 3 then [Human, Computer].sample
                    end
-    set_first_player(player_class)
+    move_player_to_first(player_class)
   end
 
-  def set_first_player(player_class)
-    first_player = players.select { |player| player.class == player_class }.sample
+  def move_player_to_first(player_class)
+    first_player = players.select do |player|
+      player.class == player_class
+    end.sample
+
     players.delete_if { |player| player.equal?(first_player) }
     players.unshift(first_player)
   end
@@ -86,7 +93,7 @@ class TTTGame
     choice = nil
     loop do
       choice = gets.chomp
-      break if (1..3) === choice.to_i
+      break if (1..3).include?(choice.to_i)
       puts "Error: Please enter a number 1-3."
     end
     choice.to_i
@@ -100,7 +107,7 @@ class TTTGame
   end
 
   def score_limit_reached
-    players.any? { |player| player.score == SCORE_LIMIT } 
+    players.any? { |player| player.score == SCORE_LIMIT }
   end
 
   def greeting
@@ -138,9 +145,11 @@ class TTTGame
   def confirm_game_start
     puts ''
     puts "======= Players and Tokens ======="
-    [Human, Computer].each { |type| puts "#{type} players: #{format_names_and_tokens(type)}" }
+    [Human, Computer].each do |type|
+      puts "#{type} players: #{format_names_and_tokens(type)}"
+    end
     puts ''
-    puts "During your turn, choose a square by entering the row#, col# as shown below:"
+    puts "During turn, choose a square by entering the row#, col# as shown below:"
     display_grid_ids
     puts 'Press any key to begin the match'
     gets.chomp
@@ -155,7 +164,9 @@ class TTTGame
 
   def format_names_and_tokens(type)
     players_subset = players.select { |player| player.class == type }
-    names_and_tokens = players_subset.map { |player| "#{player.name}: '#{player.token}'" }
+    names_and_tokens = players_subset.map do |player|
+      "#{player.name}: '#{player.token}'"
+    end
     names_and_tokens.join(', ')
   end
 
@@ -165,7 +176,6 @@ class TTTGame
     loop do
       puts "How many #{type} players are there?:"
       n = gets.chomp
-      binding.pry
       break if n.to_i.to_s == n && (n.to_i + players.size) <= MAX_PLAYERS
       puts "Error: The maximum number of players allowed is #{MAX_PLAYERS}. Please enter an integer between 1 and #{MAX_PLAYERS - players.size}."
     end
@@ -192,11 +202,10 @@ class TTTGame
   def execute_turn(player)
     square_id = player.choose_square(board.squares)
     board.update_square(player, square_id)
-    if player.class == Computer
-      sleep 0.8
-      system 'clear'
-      puts "#{player.name} chose #{square_id.to_s.delete('[] ')}!"
-    end
+    return unless player.class == Computer
+    sleep 0.8
+    system 'clear'
+    puts "#{player.name} chose #{square_id.to_s.delete('[] ')}!"
   end
 
   def handle_outcome
@@ -210,7 +219,9 @@ class TTTGame
   end
 
   def find_game_winner
-    players.select { |player| player.token == get_winning_token(board.squares) }.first
+    players.select do |player|
+      player.token == get_winning_token(board.squares)
+    end.first
   end
 
   def display_winner(name)
@@ -309,7 +320,8 @@ class Human < Player
     puts "Please choose a token (A-Z) to mark your board squares."
     loop do
       token = gets.chomp
-      break unless !(TTTGame::VALID_TOKENS.include?(token)) || (unavail_chars.include?(token))
+      break unless !(TTTGame::VALID_TOKENS.include?(token)) ||
+                   (unavail_chars.include?(token))
       puts "Your choice is either invalid or has already been taken. Please try again."
     end
     token
@@ -338,7 +350,7 @@ class Computer < Player
   end
 
   def choose_token(unavail_chars)
-    return PREFFERED_CHARS.sample unless PREFFERED_CHARS.any? {|char| unavail_chars.include?(char)}
+    return PREFFERED_CHARS.sample unless PREFFERED_CHARS.any? { |char| unavail_chars.include?(char) }
     return (PREFFERED_CHARS - unavail_chars).sample unless (PREFFERED_CHARS - unavail_chars).empty?
     (TTTGame::VALID_TOKENS - unavail_chars).sample
   end
@@ -429,7 +441,7 @@ class Board
       middle_line << cell
     end
 
-    top_bottom_line =  "#{'     |' * (size - 1)}     "
+    top_bottom_line = "#{'     |' * (size - 1)}     "
     puts top_bottom_line
     puts middle_line
     puts top_bottom_line
@@ -472,7 +484,5 @@ TTTGame.new.start
 
 =begin
 Features to be added:
- - choosing who goes first
  - ending as soon as a draw is certain
 =end
-
