@@ -6,21 +6,28 @@ class Game
   def initialize
     @deck = Deck.new
     @player = Player.new
-    @dealer = Dealer.new(@deck)
+    @dealer = Dealer.new
   end
 
   def start
     disp_welcome_msg
-    player.ask_for_name
-    deal_cards
-    show_initial_cards
-    main_game_loop
-    show_result
+    loop do
+      deal_cards
+      show_initial_cards
+      main_game_loop
+      disp_result
+      break unless play_again?
+      reset_game
+    end
+    goodbye
   end
 
   def disp_welcome_msg
     puts "===== Hello and Welcome to 21! ====="
     puts ''
+    sleep 0.5
+    puts "Dealing cards..."
+    sleep 1
   end
 
   def deal_cards
@@ -30,10 +37,16 @@ class Game
   end
 
   def show_initial_cards
-    [dealer, player].each { |prsn| puts "#{prsn.name} has #{prsn.hand}" }
     puts ''
-    puts "Press enter to start your turn"
-    gets
+    if player.name.nil?
+      [dealer, player].each { |prsn| puts "#{prsn.class} has #{prsn.hand}" }
+      puts "=> Enter your name and we'll get started"
+      player.ask_for_name
+    else
+      [dealer, player].each { |prsn| puts "#{prsn.name} has #{prsn.hand}" }
+      puts "=> Press 'Enter' and we'll get started"
+      gets
+    end
     system 'clear'
   end
 
@@ -44,25 +57,88 @@ class Game
       dealer_turn
       break
     end
-    binding.pry
+    puts ''
+    puts "=> Press 'Enter' to see result."
+    gets
+  end
+
+  def disp_result
+    busted_participant = who_busted?
+    if !!busted_participant
+      disp_busted_msg(busted_participant)
+    elsif player.total == dealer.secret_total
+      puts "===== It's a tie! ====="
+    else
+      winner = who_won?
+      disp_winner_msg(winner)
+    end
+    disp_final_cards_and_score
+  end
+
+  def who_busted?
+    return player if player.busted?
+    return dealer if dealer.busted?
+    nil
+  end
+
+  def disp_busted_msg(buster)
+    puts ''
+    puts "===== #{buster.name} busted! ====="
+  end
+
+  def who_won?
+    dealer.secret_total > player.total ? dealer : player
+  end
+
+  def disp_winner_msg(winner)
+    puts ''
+    puts "===== #{winner.name} won! ====="
+  end
+
+  def disp_final_cards_and_score
+    [dealer, player].each do |prsn|
+      hand = prsn.class == Dealer ? prsn.full_hand : prsn.hand
+      total = prsn.class == Dealer ? prsn.secret_total : prsn.total
+      puts "#{prsn.name} cards: #{hand}"
+      puts "Total: #{total}\n\n"
+    end
   end
 
   def player_turn
-    puts "#{player.name.upcase}'S TURN!"
-    puts ''
+    puts "#{player.name.upcase}'S TURN!\n\n"
     puts "Cards: #{player.hand}"
-    puts "Total: #{player.total}"
-    puts ''
+    puts "Total: #{player.total}\n\n"
     player.take_turn(deck)
   end
 
   def dealer_turn
-    puts "#{dealer.name.upcase}'S TURN!"
-    puts ''
+    puts "\n\n#{dealer.name.upcase}'S TURN!\n\n"
     puts "Cards: #{dealer.hand}"
-    puts "Total: #{dealer.total}"
-    puts ''
+    puts "Total: #{dealer.total}\n\n"
+    sleep 0.8
     dealer.take_turn(deck)
+  end
+
+  def goodbye
+    puts "Thanks for playing! Goodbye!"
+  end
+
+  def reset_game
+    @deck = Deck.new
+    dealer.reset_hand
+    player.reset_hand
+    system 'clear'
+  end
+
+  def play_again?
+    answer = nil
+    loop do
+      puts "Would you like to play again? (y/n)"
+      answer = gets.chomp.downcase
+      break if ['y', 'n'].include? answer
+      puts "Sorry, must be y or n."
+    end
+    answer == 'y'
   end
 end
 
@@ -70,11 +146,11 @@ class Participant
   attr_reader :name
 
   def hand
-    self.class == Dealer ? @hand.slice(1..@hand.length) : @hand
+    class_is_dealer = self.class == Dealer
+    class_is_dealer ? @hand.slice(1..@hand.length) : @hand
   end
 
   def total
-    # binding.pry
     faces_and_values = parse_cards(hand)
     sum_parsed_cards(faces_and_values)
   end
@@ -93,17 +169,6 @@ class Participant
     sum
   end
 
-  # def faces_and_values(cards)
-  #   faces = []
-  #   values = []
-  #   cards.each do |card|
-  #     face = card.match(/\d{1,2}|[JQKA]/)[0]
-  #     faces << face
-  #     values << Deck::FACE_VALUES[face]
-  #   end
-  #   [faces, values]
-  # end
-
   def parse_cards(cards)
     faces_with_vals = []
     cards.each do |card|
@@ -115,13 +180,16 @@ class Participant
   end
 
   def take_turn(deck)
+    class_is_dealer = self.class == Dealer
     loop do
       break puts "#{name} chose to stay!" unless hit?
       recieve_card(deck.deal)
-      puts "#{name} chose to hit! => #{hand.last}"
+      puts "#{name} chose to hit! => #{hand.last}\n\n"
+      break puts 'Busted!' if busted?
+      sleep 1.5 if class_is_dealer
       puts "Cards: #{hand}"
-      puts "Total: #{total}"
-      break if busted?
+      puts "Total: #{total}\n\n"
+      sleep 1.5 if class_is_dealer
     end
   end
 
@@ -133,6 +201,10 @@ class Participant
   def recieve_card(card)
     @hand << card
   end
+
+  def reset_hand
+    @hand = []
+  end
 end
 
 class Player < Participant
@@ -142,12 +214,17 @@ class Player < Participant
   end
 
   def ask_for_name
-    puts "What is your name?:"
-    sleep 0.25
-    @name = "Luke"
+    name = ''
+    loop do
+      name = gets.chomp
+      break unless name.empty?
+      puts "Sorry, must enter a value."
+    end
+    @name = name
   end
 
   def hit?
+    puts ''
     puts "Would you like to hit?"
     input = nil
     loop do
@@ -162,9 +239,8 @@ end
 class Dealer < Participant
   DEALER_NAME = 'Dealer'
 
-  def initialize(deck = nil)
+  def initialize
     @name = DEALER_NAME
-    @deck = deck
     @hand = []
   end
 
@@ -172,10 +248,11 @@ class Dealer < Participant
     secret_total < 17
   end
 
-  private
+  def full_hand
+    @hand
+  end
 
   def secret_total
-    binding.pry
     faces_and_values = parse_cards(@hand)
     sum_parsed_cards(faces_and_values)
   end
@@ -210,6 +287,5 @@ end
 
 Game.new.start
 =begin
-The names of the method used by #total and #secret_total need to be looked over and renamed if not reworked.
-Also need to create methods for displaying result
+game functions well. could add '??' to printout of dealer hand to signify hidden card but it would require some restructuring
 =end
