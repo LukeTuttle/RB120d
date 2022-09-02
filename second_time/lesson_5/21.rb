@@ -14,8 +14,7 @@ class Game
     player.ask_for_name
     deal_cards
     show_initial_cards
-    take_turn(player)
-    take_turn(dealer)
+    main_game_loop
     show_result
   end
 
@@ -26,33 +25,110 @@ class Game
 
   def deal_cards
     2.times do
-      player.hand.push(dealer.deal)
-      dealer.hand(false).push(dealer.deal)
+      [player, dealer].each { |prsn| prsn.recieve_card(deck.deal) }
     end
   end
 
   def show_initial_cards
     [dealer, player].each { |prsn| puts "#{prsn.name} has #{prsn.hand}" }
+    puts ''
+    puts "Press enter to start your turn"
+    gets
+    system 'clear'
   end
 
-  def take_turn(participant)
-    puts ''
-    puts "#{participant.class.to_s.upcase} TURN!"
-    name = participant.name
-    hand = participant.hand
+  def main_game_loop
     loop do
-      break puts "#{name} chose to stay!" unless participant.hit?
-      hand << dealer.deal
-      puts "#{name} chose to hit! => #{hand.last}"
-      puts "#{name} total: #{participant.total}"
+      player_turn
+      break if player.busted?
+      dealer_turn
+      break
     end
+    binding.pry
+  end
+
+  def player_turn
+    puts "#{player.name.upcase}'S TURN!"
+    puts ''
+    puts "Cards: #{player.hand}"
+    puts "Total: #{player.total}"
+    puts ''
+    player.take_turn(deck)
+  end
+
+  def dealer_turn
+    puts "#{dealer.name.upcase}'S TURN!"
+    puts ''
+    puts "Cards: #{dealer.hand}"
+    puts "Total: #{dealer.total}"
+    puts ''
+    dealer.take_turn(deck)
   end
 end
 
-class Player
-  attr_accessor :hand
+class Participant
   attr_reader :name
 
+  def hand
+    self.class == Dealer ? @hand.slice(1..@hand.length) : @hand
+  end
+
+  def total
+    faces_and_values = hand_to_hash(hand)
+    sum_from_hash(faces_and_values)
+  end
+
+  # def sum_from_hash(cards)
+  #   sum = cards.values.sum
+  #   return sum unless sum > 21
+
+  #   aces = cards.keys.select { |face| face == 'A' }
+  #   aces.each { |_| sum -= 10 unless sum < 21 }
+  #   sum
+  # end
+  
+  def sum_from_hash(cards)
+    sum = cards.last.sum
+    return sum unless sum > 21
+
+    aces = cards.first.select { |face| face == 'A' }
+    aces.each { |_| sum -= 10 unless sum < 21 }
+    sum
+  end
+
+  def faces_and_values(cards)
+    faces = []
+    values = []
+    cards.each do |card|
+      face = card.match(/\d{1,2}|[JQKA]/)[0]
+      faces << face
+      values << Deck::FACE_VALUES[face]
+    end
+    [faces, values]
+  end
+
+  def take_turn(deck)
+    loop do
+      break puts "#{name} chose to stay!" unless hit?
+      recieve_card(deck.deal)
+      puts "#{name} chose to hit! => #{hand.last}"
+      puts "Cards: #{hand}"
+      puts "Total: #{total}"
+      break if busted?
+    end
+  end
+
+  def busted?
+    local_total = self.class == Dealer ? secret_total : total
+    local_total > 21
+  end
+
+  def recieve_card(card)
+    @hand << card
+  end
+end
+
+class Player < Participant
   def initialize
     @name = nil
     @hand = []
@@ -74,21 +150,10 @@ class Player
     end
     input.downcase == 'y'
   end
-
-  def total
-    hand_value = hand.map do |card|
-      face = card.match(/\d{1,2}|[JQKA]/)[0]
-      Deck::FACE_VALUES[face]
-    end
-    hand_value.sum
-    # needs to handle aces
-  end
 end
 
-class Dealer
+class Dealer < Participant
   DEALER_NAME = 'Dealer'
-
-  attr_reader :name
 
   def initialize(deck = nil)
     @name = DEALER_NAME
@@ -96,20 +161,16 @@ class Dealer
     @hand = []
   end
 
-  def deal
-    deck.delete(deck.sample)
-  end
-
-  def hand(keep_private = true)
-    return @hand if !keep_private
-    public_cards = @hand.slice(1..@hand.length)
-    public_cards
+  def hit?
+    secret_total < 17
   end
 
   private
 
-  def deck
-    @deck.cards
+  def secret_total
+    binding.pry
+    faces_and_values = faces_and_values(@hand)
+    sum_from_hash(faces_and_values)
   end
 end
 
@@ -134,9 +195,14 @@ class Deck
     end
     deck.shuffle
   end
+
+  def deal
+    @cards.pop
+  end
 end
 
 Game.new.start
 =begin
-Player turn works but the Player#total method needs to handle aces
+The names of the method used by #total and #secret_total need to be looked over and renamed if not reworked.
+Also need to create methods for displaying result
 =end
