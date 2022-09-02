@@ -74,37 +74,44 @@ class Participant
   end
 
   def total
-    faces_and_values = hand_to_hash(hand)
-    sum_from_hash(faces_and_values)
+    # binding.pry
+    faces_and_values = parse_cards(hand)
+    sum_parsed_cards(faces_and_values)
   end
 
-  # def sum_from_hash(cards)
-  #   sum = cards.values.sum
-  #   return sum unless sum > 21
+  def sum_parsed_cards(cards)
+    aces = []
+    values = []
+    cards.each do |face, value|
+      aces << face if face == 'A'
+      values << value
+    end
 
-  #   aces = cards.keys.select { |face| face == 'A' }
-  #   aces.each { |_| sum -= 10 unless sum < 21 }
-  #   sum
-  # end
-  
-  def sum_from_hash(cards)
-    sum = cards.last.sum
+    sum = values.sum
     return sum unless sum > 21
-
-    aces = cards.first.select { |face| face == 'A' }
-    aces.each { |_| sum -= 10 unless sum < 21 }
+    aces.each { |_| sum -= 10 unless sum <= 21 }
     sum
   end
 
-  def faces_and_values(cards)
-    faces = []
-    values = []
+  # def faces_and_values(cards)
+  #   faces = []
+  #   values = []
+  #   cards.each do |card|
+  #     face = card.match(/\d{1,2}|[JQKA]/)[0]
+  #     faces << face
+  #     values << Deck::FACE_VALUES[face]
+  #   end
+  #   [faces, values]
+  # end
+
+  def parse_cards(cards)
+    faces_with_vals = []
     cards.each do |card|
       face = card.match(/\d{1,2}|[JQKA]/)[0]
-      faces << face
-      values << Deck::FACE_VALUES[face]
+      value = Deck::FACE_VALUES[face]
+      faces_with_vals << [face, value]
     end
-    [faces, values]
+    faces_with_vals
   end
 
   def take_turn(deck)
@@ -169,8 +176,8 @@ class Dealer < Participant
 
   def secret_total
     binding.pry
-    faces_and_values = faces_and_values(@hand)
-    sum_from_hash(faces_and_values)
+    faces_and_values = parse_cards(@hand)
+    sum_parsed_cards(faces_and_values)
   end
 end
 
